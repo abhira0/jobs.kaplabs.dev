@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { buildApiUrl } from "@/utils/api";
 import { parseJwt } from "@/utils/jwt";
@@ -23,17 +23,12 @@ function JobsInner() {
   const { setUsername } = useApplications();
   const router = useRouter();
   const params = useSearchParams();
+  const filtersSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const sortsSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem("jwt_token");
-    const payload = token ? parseJwt(token) : null;
-    const isExpired = payload && typeof payload.exp === 'number' && Date.now() / 1000 >= payload.exp;
-    if (!token || !payload || isExpired) {
-      try { localStorage.removeItem("jwt_token"); } catch {}
-      router.replace("/login?redirect=/jobs");
-      return;
-    }
-  }, [router]);
+  // Auth check removed - handled by AuthGate in layout
+  // This prevents redundant router.replace() calls that can trigger
+  // browser's history.replaceState() rate limiting
 
   useEffect(() => {
     try {
@@ -196,17 +191,40 @@ function JobsInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // state → URL (simple)
+  // Cleanup all timeouts on unmount
   useEffect(() => {
-    const usp = new URLSearchParams();
-    if (searchQuery) usp.set("q", searchQuery);
-    if (page > 1) usp.set("page", String(page));
-    if (pageSize !== 25) usp.set("size", String(pageSize));
-    usp.set("scope", searchInFiltered ? "filtered" : "all");
-    usp.set("mode", searchMode);
-    usp.set("field", searchField);
-    const qs = usp.toString();
-    router.replace(`/jobs${qs ? `?${qs}` : ""}`);
+    return () => {
+      if (filtersSaveTimeoutRef.current) clearTimeout(filtersSaveTimeoutRef.current);
+      if (sortsSaveTimeoutRef.current) clearTimeout(sortsSaveTimeoutRef.current);
+    };
+  }, []);
+
+  // state → URL (throttled to prevent history.replaceState() rate limiting)
+  const urlSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    // Clear any pending updates
+    if (urlSyncTimeoutRef.current) {
+      clearTimeout(urlSyncTimeoutRef.current);
+    }
+
+    // Throttle URL updates to max once per 100ms to avoid browser rate limiting
+    urlSyncTimeoutRef.current = setTimeout(() => {
+      const usp = new URLSearchParams();
+      if (searchQuery) usp.set("q", searchQuery);
+      if (page > 1) usp.set("page", String(page));
+      if (pageSize !== 25) usp.set("size", String(pageSize));
+      usp.set("scope", searchInFiltered ? "filtered" : "all");
+      usp.set("mode", searchMode);
+      usp.set("field", searchField);
+      const qs = usp.toString();
+      router.replace(`/jobs${qs ? `?${qs}` : ""}`);
+    }, 100);
+
+    return () => {
+      if (urlSyncTimeoutRef.current) {
+        clearTimeout(urlSyncTimeoutRef.current);
+      }
+    };
   }, [router, searchQuery, page, pageSize, searchInFiltered, searchMode, searchField]);
 
 
@@ -276,7 +294,8 @@ function JobsInner() {
                         } catch (e: unknown) {
                           setFiltersSaveState({ status: "error", message: e instanceof Error ? e.message : "Failed" });
                         } finally {
-                          setTimeout(() => setFiltersSaveState({ status: "idle" }), 2000);
+                          if (filtersSaveTimeoutRef.current) clearTimeout(filtersSaveTimeoutRef.current);
+                          filtersSaveTimeoutRef.current = setTimeout(() => setFiltersSaveState({ status: "idle" }), 2000);
                         }
                       }}
                       className="rounded-md border border-default px-3 py-1.5 text-xs hover:bg-white/5"
@@ -320,7 +339,8 @@ function JobsInner() {
                         } catch (e: unknown) {
                           setSortsSaveState({ status: "error", message: e instanceof Error ? e.message : "Failed" });
                         } finally {
-                          setTimeout(() => setSortsSaveState({ status: "idle" }), 2000);
+                          if (sortsSaveTimeoutRef.current) clearTimeout(sortsSaveTimeoutRef.current);
+                          sortsSaveTimeoutRef.current = setTimeout(() => setSortsSaveState({ status: "idle" }), 2000);
                         }
                       }}
                       className="rounded-md border border-default px-3 py-1.5 text-xs hover:bg-white/5"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { User } from "@/types/user";
 import { parseJwt } from "@/utils/jwt";
 import { buildApiUrl } from "@/utils/api";
@@ -17,6 +17,7 @@ export default function ProfilePage() {
   const [rulesMsg, setRulesMsg] = useState<string | null>(null);
   const [refreshingSimplify, setRefreshingSimplify] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+  const rulesMsgTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -29,12 +30,12 @@ export default function ProfilePage() {
         }
         const payload = parseJwt(token);
         if (payload) {
-          setUser({ 
-            _id: "", 
-            username: typeof payload.sub === 'string' ? payload.sub : '', 
-            email: typeof payload.email === 'string' ? payload.email : '', 
-            name: typeof payload.name === 'string' ? payload.name : '', 
-            role: (typeof payload.role === 'string' && (payload.role === 'user' || payload.role === 'admin')) ? payload.role : 'user' 
+          setUser({
+            _id: "",
+            username: typeof payload.sub === 'string' ? payload.sub : '',
+            email: typeof payload.email === 'string' ? payload.email : '',
+            name: typeof payload.name === 'string' ? payload.name : '',
+            role: (typeof payload.role === 'string' && (payload.role === 'user' || payload.role === 'admin')) ? payload.role : 'user'
           });
         } else {
           setUser(null);
@@ -68,6 +69,13 @@ export default function ProfilePage() {
       }
     };
     run();
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (rulesMsgTimeoutRef.current) {
+        clearTimeout(rulesMsgTimeoutRef.current);
+      }
+    };
   }, []);
 
   if (loading) return <p className="text-sm text-muted">Loading…</p>;
@@ -106,7 +114,8 @@ export default function ProfilePage() {
               if (!res.ok) throw new Error("Failed to delete filters");
               setFilterRules([]);
               setRulesMsg("Deleted saved filters.");
-              setTimeout(() => setRulesMsg(null), 2000);
+              if (rulesMsgTimeoutRef.current) clearTimeout(rulesMsgTimeoutRef.current);
+              rulesMsgTimeoutRef.current = setTimeout(() => setRulesMsg(null), 2000);
             } catch (e: unknown) {
               setRulesMsg(e instanceof Error ? e.message : "Failed to delete filters");
             }
@@ -133,7 +142,8 @@ export default function ProfilePage() {
               if (!res.ok) throw new Error("Failed to delete sorts");
               setSortRules([]);
               setRulesMsg("Deleted saved sorts.");
-              setTimeout(() => setRulesMsg(null), 2000);
+              if (rulesMsgTimeoutRef.current) clearTimeout(rulesMsgTimeoutRef.current);
+              rulesMsgTimeoutRef.current = setTimeout(() => setRulesMsg(null), 2000);
             } catch (e: unknown) {
               setRulesMsg(e instanceof Error ? e.message : "Failed to delete sorts");
             }

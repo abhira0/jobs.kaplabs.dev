@@ -1,11 +1,21 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 function OpenLinksContent() {
   const params = useSearchParams();
   const [status, setStatus] = useState<string | null>(null);
+  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const links = useMemo<string[]>(() => {
     try {
@@ -33,7 +43,8 @@ function OpenLinksContent() {
     });
     if (blocked > 0) {
       setStatus(`Your browser blocked ${blocked} tab(s). Please allow pop-ups and try again.`);
-      setTimeout(() => setStatus(null), 5000);
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+      statusTimeoutRef.current = setTimeout(() => setStatus(null), 5000);
     }
   };
 
@@ -41,10 +52,12 @@ function OpenLinksContent() {
     try {
       await navigator.clipboard.writeText(links.join("\n"));
       setStatus("Copied all links to clipboard");
-      setTimeout(() => setStatus(null), 2000);
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+      statusTimeoutRef.current = setTimeout(() => setStatus(null), 2000);
     } catch {
       setStatus("Failed to copy");
-      setTimeout(() => setStatus(null), 2000);
+      if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current);
+      statusTimeoutRef.current = setTimeout(() => setStatus(null), 2000);
     }
   };
 

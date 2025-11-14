@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Job } from "@/types/job";
 import { applyFilters, type ActiveFilter } from "@/utils/filters";
 import { applySorts, type SortSpec } from "@/utils/sorts";
@@ -45,6 +45,16 @@ export function useTableManager(initialData: Job[]): UseTableManagerReturn {
   const [searchInFiltered, setSearchInFiltered] = useState(true);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const debouncedSetSearchQuery = useCallback((query: string) => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {

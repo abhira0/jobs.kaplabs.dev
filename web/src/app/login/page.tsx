@@ -15,6 +15,7 @@ function LoginContent() {
   const search = useSearchParams();
   const redirectTo = search.get("redirect") || "/jobs";
 
+  // Check if already logged in on mount - run only once to avoid redirect loops
   useEffect(() => {
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("jwt_token");
@@ -26,16 +27,16 @@ function LoginContent() {
         .split('; ')
         .find(row => row.startsWith('logged_in='))
         ?.split('=')[1];
-      
-      console.log("Debug - token:", !!token, "cookieToken:", !!cookieToken, "loggedInCookie:", !!loggedInCookie);
-      console.log("Debug - cookies:", document.cookie);
-      
+
       if (token || cookieToken || loggedInCookie) {
-        console.log("Debug - redirecting to:", redirectTo);
-        router.replace(redirectTo);
+        // Use the redirectTo value at mount time, not as a dependency
+        const redirect = search.get("redirect") || "/jobs";
+        router.replace(redirect);
       }
     }
-  }, [router, redirectTo]);
+    // Only run on mount, not when router or redirectTo changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

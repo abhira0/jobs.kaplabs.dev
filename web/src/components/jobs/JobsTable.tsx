@@ -166,8 +166,18 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
   const bulkHideSelected = async () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
-    // Mirror hidden/applied
-    await Promise.all(ids.map((id) => updateApplication(id, "hidden", true)));
+
+    // Use Promise.allSettled to handle partial failures gracefully
+    const results = await Promise.allSettled(
+      ids.map((id) => updateApplication(id, "hidden", true))
+    );
+
+    // Log any failures for debugging (optional)
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length > 0) {
+      console.warn(`Failed to hide ${failures.length} out of ${ids.length} jobs`);
+    }
+
     clearSelection();
   };
 

@@ -57,7 +57,8 @@ export default function AdminInvitesPage() {
 
   useEffect(() => {
     fetchInvites();
-  }, [page, size, fetchInvites]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, size]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

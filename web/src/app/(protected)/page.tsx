@@ -1,21 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { parseJwt } from "@/utils/jwt";
 
 export default function Home() {
-  const router = useRouter();
-  useEffect(() => {
-    const token = localStorage.getItem("jwt_token");
-    const payload = token ? parseJwt(token) : null;
-    const isExpired = payload && typeof payload.exp === 'number' && Date.now() / 1000 >= payload.exp;
-    if (!token || !payload || isExpired) {
-      try { localStorage.removeItem("jwt_token"); } catch {}
-      router.replace("/login?redirect=/");
-    }
-  }, [router]);
+  // Auth check removed - handled by AuthGate in layout
+  // This prevents redundant router.replace() calls
 
   return (
     <section className="flex flex-col gap-6 py-8">
