@@ -82,7 +82,7 @@ export default function ClientNav() {
     <div className="flex items-center gap-2 text-sm relative">
       <Link className="px-3 py-1.5 rounded-md hover:bg-white/5 transition-colors" href="/jobs">Jobs</Link>
       <Link className="px-3 py-1.5 rounded-md hover:bg-white/5 transition-colors" href="/internships">Internships</Link>
-      <Link className="px-3 py-1.5 rounded-md hover:bg-white/5 transition-colors opacity-60 pointer-events-none" href="/analytics">Analytics</Link>
+      <Link className="px-3 py-1.5 rounded-md hover:bg-white/5 transition-colors" href="/analytics">Analytics</Link>
 
       {user ? (
         <div className="relative" ref={menuRef}>

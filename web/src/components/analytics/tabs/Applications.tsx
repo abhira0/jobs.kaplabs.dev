@@ -1,0 +1,244 @@
+// Applications Tab - Detailed Application Analytics
+
+'use client';
+
+import { useState, useMemo } from 'react';
+import { ProcessedAnalyticsData } from '@/types/analytics';
+import ChartContainer from '../ChartContainer';
+import EmptyState from '../EmptyState';
+import {
+  ComposedChart,
+  Line,
+  Bar,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
+import { format } from 'date-fns';
+
+type ApplicationsProps = {
+  data: ProcessedAnalyticsData;
+};
+
+export default function Applications({ data }: ApplicationsProps) {
+  const { daily } = data;
+  const [timeRange, setTimeRange] = useState<'7' | '14' | '30' | 'all'>('30');
+
+  // Convert daily stats to array and sort by date
+  const dailyDataArray = useMemo(() => {
+    const entries = Object.entries(daily).map(([date, stats]) => ({
+      date,
+      applications: stats.totalApplications,
+      companies: stats.uniqueCompanies.size,
+      rejections: stats.rejections,
+      interviews: stats.interviews || 0,
+      offers: stats.offers || 0,
+    }));
+
+    // Sort by date
+    entries.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Apply time range filter
+    if (timeRange !== 'all') {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - parseInt(timeRange));
+      const cutoffStr = cutoffDate.toISOString().split('T')[0];
+      return entries.filter(e => e.date >= cutoffStr);
+    }
+
+    return entries;
+  }, [daily, timeRange]);
+
+  // Format data for charts
+  const chartData = dailyDataArray.map(item => ({
+    ...item,
+    label: format(new Date(item.date), 'MMM d'),
+  }));
+
+  // Calculate cumulative applications
+  const cumulativeData = useMemo(() => {
+    let cumulative = 0;
+    return chartData.map(item => {
+      cumulative += item.applications;
+      return {
+        ...item,
+        cumulative,
+      };
+    });
+  }, [chartData]);
+
+  // Response time data
+  const responseData = Object.entries(data.responseTimeDistribution).map(([range, count]) => ({
+    range,
+    count,
+  }));
+
+  if (dailyDataArray.length === 0) {
+    return <EmptyState title="No Application Data" description="No application history available" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Time Range Selector */}
+      <div className="flex justify-end gap-2">
+        {(['7', '14', '30', 'all'] as const).map(range => (
+          <button
+            key={range}
+            onClick={() => setTimeRange(range)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              timeRange === range
+                ? 'bg-white/15 text-white'
+                : 'bg-white/5 text-muted hover:bg-white/10'
+            }`}
+          >
+            {range === 'all' ? 'All Time' : `${range} Days`}
+          </button>
+        ))}
+      </div>
+
+      {/* Daily Applications Trend */}
+      <ChartContainer
+        title="Daily Application Activity"
+        description="Applications, unique companies, and rejections per day"
+        chartId="daily-applications-chart"
+        exportData={{
+          name: 'Daily Applications',
+          data: chartData,
+          headers: ['date', 'applications', 'companies', 'rejections'],
+        }}
+      >
+        <ResponsiveContainer width="100%" height={350}>
+          <ComposedChart data={chartData}>
+            <defs>
+              <linearGradient id="colorApps" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="colorCompanies" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+            <XAxis
+              dataKey="label"
+              stroke="#8b949e"
+              style={{ fontSize: '12px' }}
+            />
+            <YAxis stroke="#8b949e" style={{ fontSize: '12px' }} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#0f1117',
+                border: '1px solid #21262d',
+                borderRadius: '8px',
+                fontSize: '12px',
+              }}
+            />
+            <Legend />
+            <Bar dataKey="applications" fill="#6366f1" name="Applications" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="companies" fill="#10b981" name="Companies" radius={[4, 4, 0, 0]} />
+            <Line
+              type="monotone"
+              dataKey="rejections"
+              stroke="#ef4444"
+              strokeWidth={2}
+              name="Rejections"
+              dot={{ r: 3 }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </ChartContainer>
+
+      {/* Cumulative Progress and Response Time */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Cumulative Applications */}
+        <ChartContainer
+          title="Cumulative Progress"
+          description="Total applications over time"
+          chartId="cumulative-chart"
+          exportData={{
+            name: 'Cumulative Applications',
+            data: cumulativeData,
+            headers: ['date', 'cumulative'],
+          }}
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={cumulativeData}>
+              <defs>
+                <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+              <XAxis
+                dataKey="label"
+                stroke="#8b949e"
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis stroke="#8b949e" style={{ fontSize: '12px' }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#0f1117',
+                  border: '1px solid #21262d',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="cumulative"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorCumulative)"
+                name="Total Applications"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+
+        {/* Response Time Distribution */}
+        <ChartContainer
+          title="Response Time Distribution"
+          description="How long it takes to hear back"
+          chartId="response-time-chart"
+          exportData={{
+            name: 'Response Time',
+            data: responseData,
+            headers: ['range', 'count'],
+          }}
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <ComposedChart data={responseData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+              <XAxis
+                dataKey="range"
+                stroke="#8b949e"
+                style={{ fontSize: '11px' }}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+              />
+              <YAxis stroke="#8b949e" style={{ fontSize: '12px' }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#0f1117',
+                  border: '1px solid #21262d',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                }}
+              />
+              <Bar dataKey="count" fill="#f59e0b" name="Applications" radius={[4, 4, 0, 0]} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </div>
+    </div>
+  );
+}
