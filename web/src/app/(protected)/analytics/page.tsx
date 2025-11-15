@@ -5,12 +5,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { SimplifyJob, AnalyticsFilters, ProcessedAnalyticsData } from '@/types/analytics';
+import { SimplifyJob, AnalyticsFilters, ProcessedAnalyticsData, Snapshot, SnapshotWithData } from '@/types/analytics';
 import { processAnalyticsData, applyFilters } from '@/utils/analytics';
 import { buildApiUrl } from '@/utils/api';
 import FilterBar from '@/components/analytics/FilterBar';
 import LoadingSkeleton from '@/components/analytics/LoadingSkeleton';
 import EmptyState from '@/components/analytics/EmptyState';
+import SnapshotModal from '@/components/analytics/SnapshotModal';
 import Overview from '@/components/analytics/tabs/Overview';
 import Applications from '@/components/analytics/tabs/Applications';
 import Companies from '@/components/analytics/tabs/Companies';
@@ -43,6 +44,10 @@ function AnalyticsPageInner() {
     dateRange: 'all',
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [viewingSnapshot, setViewingSnapshot] = useState<SimplifyJob[] | null>(null);
+  const [snapshotName, setSnapshotName] = useState<string | null>(null);
 
   // Fetch data with SWR - auto-refresh every 5 minutes
   const {
@@ -56,13 +61,16 @@ function AnalyticsPageInner() {
     revalidateOnReconnect: true,
   });
 
+  // Determine which data to display (snapshot or current)
+  const displayData = viewingSnapshot || rawData;
+
   // Process and filter data
   const processedData: ProcessedAnalyticsData | null = useMemo(() => {
-    if (!rawData || rawData.length === 0) return null;
+    if (!displayData || displayData.length === 0) return null;
 
-    const filteredData = applyFilters(rawData, filters);
+    const filteredData = applyFilters(displayData, filters);
     return processAnalyticsData(filteredData);
-  }, [rawData, filters]);
+  }, [displayData, filters]);
 
   // Extract unique companies and locations for filters
   const { companies, locations } = useMemo(() => {
@@ -126,6 +134,55 @@ function AnalyticsPageInner() {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  // Fetch snapshots
+  const fetchSnapshots = async () => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(buildApiUrl('/analytics/snapshots'), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSnapshots(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch snapshots:', error);
+    }
+  };
+
+  // Fetch snapshots on mount
+  useEffect(() => {
+    fetchSnapshots();
+  }, []);
+
+  // View snapshot
+  const handleViewSnapshot = async (snapshotId: string) => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(buildApiUrl(`/analytics/snapshots/${snapshotId}`), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const snapshotData: SnapshotWithData = await res.json();
+        setViewingSnapshot(snapshotData.data);
+        setSnapshotName(snapshotData.name);
+        setIsSnapshotModalOpen(false);
+      }
+    } catch (error) {
+      console.error('Failed to fetch snapshot:', error);
+    }
+  };
+
+  // Exit snapshot view
+  const handleExitSnapshotView = () => {
+    setViewingSnapshot(null);
+    setSnapshotName(null);
   };
 
   // Tabs configuration
@@ -204,28 +261,57 @@ function AnalyticsPageInner() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
+          <h1 className="text-2xl font-semibold">
+            {viewingSnapshot ? (
+              <>
+                Analytics Dashboard <span className="text-blue-400">• Viewing: {snapshotName}</span>
+              </>
+            ) : (
+              'Analytics Dashboard'
+            )}
+          </h1>
           <p className="text-sm text-muted mt-1">
-            Track your job application performance and insights
+            {viewingSnapshot
+              ? 'Viewing snapshot data - changes to filters will not affect snapshot'
+              : 'Track your job application performance and insights'}
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/15 text-sm font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
-        >
-          {isRefreshing ? (
-            <>
-              <span className="inline-block animate-spin mr-2">⟳</span>
-              Refreshing...
-            </>
+        <div className="flex items-center gap-2">
+          {viewingSnapshot ? (
+            <button
+              onClick={handleExitSnapshotView}
+              className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/15 text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              Exit Snapshot View
+            </button>
           ) : (
             <>
-              <span className="mr-2">⟳</span>
-              Refresh Data
+              <button
+                onClick={() => setIsSnapshotModalOpen(true)}
+                className="px-4 py-2 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                📸 Snapshots ({snapshots.length}/5)
+              </button>
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/15 text-sm font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {isRefreshing ? (
+                  <>
+                    <span className="inline-block animate-spin mr-2">⟳</span>
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <span className="mr-2">⟳</span>
+                    Refresh Data
+                  </>
+                )}
+              </button>
             </>
           )}
-        </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -268,6 +354,16 @@ function AnalyticsPageInner() {
         {activeTab === 'compensation' && <Compensation data={processedData} />}
         {activeTab === 'performance' && <Performance data={processedData} />}
       </div>
+
+      {/* Snapshot Modal */}
+      <SnapshotModal
+        isOpen={isSnapshotModalOpen}
+        onClose={() => setIsSnapshotModalOpen(false)}
+        snapshots={snapshots}
+        onSnapshotCreated={fetchSnapshots}
+        onSnapshotDeleted={fetchSnapshots}
+        onSnapshotView={handleViewSnapshot}
+      />
     </section>
   );
 }

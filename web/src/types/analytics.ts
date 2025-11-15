@@ -153,3 +153,27 @@ export type ChartData = {
   data: Record<string, string | number>[];
   headers?: string[];
 };
+
+// Snapshot Types
+export type Snapshot = {
+  id: string;
+  username: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  data_count: number;
+};
+
+export type SnapshotWithData = {
+  id: string;
+  username: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  data: SimplifyJob[];
+};
+
+export type SnapshotCreate = {
+  name: string;
+  description?: string;
+};
