@@ -342,7 +342,7 @@ const processLocationData = (data: SimplifyJob[]): LocationStats => {
   };
 };
 
-// Process Status Distribution
+// Process Status Distribution - Get CURRENT status of each job
 const processStatusDistribution = (data: SimplifyJob[]): StatusDistribution => {
   const distribution: StatusDistribution = {
     applied: 0,
@@ -355,28 +355,52 @@ const processStatusDistribution = (data: SimplifyJob[]): StatusDistribution => {
   };
 
   data.forEach(job => {
-    let latestStatus = 'pending';
-    let latestTimestamp = '';
+    if (!job.status_events || job.status_events.length === 0) {
+      return;
+    }
 
-    job.status_events?.forEach(event => {
-      if (!latestTimestamp || event.timestamp > latestTimestamp) {
-        latestTimestamp = event.timestamp;
-        latestStatus = event.status;
-      }
-    });
+    // Sort events by timestamp to get the latest status
+    const sortedEvents = [...job.status_events].sort((a, b) =>
+      b.timestamp.localeCompare(a.timestamp)
+    );
 
-    if (latestStatus === 'applied') {
-      // Check if it's truly pending (no other status after applied)
-      const hasResponse = job.status_events?.some(
-        e => e.status !== 'applied' && e.timestamp > latestTimestamp
-      );
-      if (!hasResponse) {
+    const latestEvent = sortedEvents[0];
+    const currentStatus = latestEvent.status.toLowerCase();
+
+    // If latest status is "applied" with only one event, it's pending (no response yet)
+    if (currentStatus === 'applied' && job.status_events.length === 1) {
+      distribution.pending++;
+    }
+    // If latest status is "applied" but there are multiple events, check if there's a non-applied status
+    else if (currentStatus === 'applied') {
+      const hasOtherStatus = job.status_events.some(e => e.status.toLowerCase() !== 'applied');
+      if (hasOtherStatus) {
+        // This shouldn't normally happen (applied shouldn't be latest if other statuses exist)
+        // But if it does, count as pending
         distribution.pending++;
       } else {
-        distribution.applied++;
+        distribution.pending++;
       }
-    } else if (latestStatus in distribution) {
-      distribution[latestStatus as keyof StatusDistribution]++;
+    }
+    // Map status to distribution
+    else if (currentStatus === 'rejected' || currentStatus === 'rejection') {
+      distribution.rejected++;
+    }
+    else if (currentStatus === 'interviewing' || currentStatus === 'interview' || currentStatus === 'phone screen' || currentStatus === 'onsite') {
+      distribution.interviewing++;
+    }
+    else if (currentStatus === 'offer' || currentStatus === 'offered') {
+      distribution.offer++;
+    }
+    else if (currentStatus === 'accepted') {
+      distribution.accepted++;
+    }
+    else if (currentStatus === 'withdrawn' || currentStatus === 'withdraw') {
+      distribution.withdrawn++;
+    }
+    else {
+      // Unknown status, count as pending
+      distribution.pending++;
     }
   });
 
@@ -388,7 +412,7 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
   const companyMap = new Map<string, CompanyStats>();
 
   data.forEach(job => {
-    if (!job.company_id) return;
+    if (!job.company_id || !job.status_events || job.status_events.length === 0) return;
 
     if (!companyMap.has(job.company_id)) {
       companyMap.set(job.company_id, {
@@ -404,29 +428,47 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
 
     const stats = companyMap.get(job.company_id)!;
 
-    const hasApplied = job.status_events?.some(e => e.status === 'applied');
+    const hasApplied = job.status_events?.some(e => e.status.toLowerCase() === 'applied');
     if (hasApplied) {
       stats.totalApplications++;
     }
 
-    const appliedEvent = job.status_events?.find(e => e.status === 'applied');
+    // Get current status (latest event)
+    const sortedEvents = [...job.status_events].sort((a, b) =>
+      b.timestamp.localeCompare(a.timestamp)
+    );
+    const currentStatus = sortedEvents[0].status.toLowerCase();
+
+    // Only count CURRENT status, not historical
+    if (currentStatus === 'rejected' || currentStatus === 'rejection') {
+      stats.rejections++;
+    }
+    if (currentStatus === 'interviewing' || currentStatus === 'interview' || currentStatus === 'phone screen' || currentStatus === 'onsite') {
+      stats.interviews++;
+    }
+    if (currentStatus === 'offer' || currentStatus === 'offered' || currentStatus === 'accepted') {
+      stats.offers++;
+    }
+
+    // Calculate response time (time from applied to current status)
+    const appliedEvent = job.status_events?.find(e => e.status.toLowerCase() === 'applied');
     const appliedDate = appliedEvent ? getLocalDateStr(appliedEvent.timestamp) : null;
-    const responseTimes: number[] = [];
 
-    job.status_events?.forEach(event => {
-      if (event.status === 'rejected') stats.rejections++;
-      if (event.status === 'interviewing') stats.interviews++;
-      if (event.status === 'offer') stats.offers++;
-
-      // Calculate response time
-      if (appliedDate && event.status !== 'applied') {
-        const responseTime = calculateResponseTime(appliedDate, getLocalDateStr(event.timestamp) || '');
-        responseTimes.push(responseTime);
+    // Only calculate response time if there's a response (current status is not applied/pending)
+    if (appliedDate && currentStatus !== 'applied' && sortedEvents[0]) {
+      const responseDate = getLocalDateStr(sortedEvents[0].timestamp);
+      if (responseDate) {
+        const responseTime = calculateResponseTime(appliedDate, responseDate);
+        if (!stats.avgResponseTime) {
+          stats.avgResponseTime = responseTime;
+        } else {
+          // Running average
+          const currentCount = stats.rejections + stats.interviews + stats.offers;
+          stats.avgResponseTime = Math.round(
+            (stats.avgResponseTime * (currentCount - 1) + responseTime) / currentCount
+          );
+        }
       }
-    });
-
-    if (responseTimes.length > 0) {
-      stats.avgResponseTime = Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length);
     }
   });
 

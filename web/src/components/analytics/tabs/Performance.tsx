@@ -51,12 +51,39 @@ export default function Performance({ data }: PerformanceProps) {
     };
   }, [summary, statusDistribution]);
 
-  // Funnel data
+  // Funnel data - show current status breakdown
   const funnelData = [
-    { stage: 'Applied', count: summary.totalApps, color: '#3b82f6' },
-    { stage: 'Interviewing', count: statusDistribution.interviewing || 0, color: '#f59e0b' },
-    { stage: 'Offers', count: (statusDistribution.offer || 0) + (statusDistribution.accepted || 0), color: '#10b981' },
-  ].filter(item => item.count > 0);
+    {
+      stage: 'Applied',
+      count: summary.totalApps,
+      color: '#3b82f6',
+      percentage: 100,
+    },
+    {
+      stage: 'Pending Response',
+      count: statusDistribution.pending || 0,
+      color: '#6366f1',
+      percentage: summary.totalApps > 0 ? Math.round(((statusDistribution.pending || 0) / summary.totalApps) * 100) : 0,
+    },
+    {
+      stage: 'Interviewing',
+      count: statusDistribution.interviewing || 0,
+      color: '#f59e0b',
+      percentage: summary.totalApps > 0 ? Math.round(((statusDistribution.interviewing || 0) / summary.totalApps) * 100) : 0,
+    },
+    {
+      stage: 'Offers',
+      count: (statusDistribution.offer || 0) + (statusDistribution.accepted || 0),
+      color: '#10b981',
+      percentage: summary.totalApps > 0 ? Math.round((((statusDistribution.offer || 0) + (statusDistribution.accepted || 0)) / summary.totalApps) * 100) : 0,
+    },
+    {
+      stage: 'Rejected',
+      count: statusDistribution.rejected || 0,
+      color: '#ef4444',
+      percentage: summary.totalApps > 0 ? Math.round(((statusDistribution.rejected || 0) / summary.totalApps) * 100) : 0,
+    },
+  ];
 
   if (summary.totalApps === 0) {
     return <EmptyState title="No Performance Data" description="No applications to analyze yet" />;
@@ -186,41 +213,45 @@ export default function Performance({ data }: PerformanceProps) {
         </ChartContainer>
       </div>
 
-      {/* Application Funnel */}
+      {/* Application Status Breakdown */}
       <ChartContainer
-        title="Application Funnel"
-        description="Conversion through application stages"
+        title="Application Status Breakdown"
+        description="Current status of all applications"
         chartId="funnel-chart"
         exportData={{
-          name: 'Application Funnel',
+          name: 'Application Status',
           data: funnelData,
-          headers: ['stage', 'count'],
+          headers: ['stage', 'count', 'percentage'],
         }}
       >
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={funnelData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-            <XAxis
-              dataKey="stage"
-              stroke="#8b949e"
-              style={{ fontSize: '12px' }}
-            />
-            <YAxis stroke="#8b949e" style={{ fontSize: '12px' }} />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#0f1117',
-                border: '1px solid #21262d',
-                borderRadius: '8px',
-                fontSize: '12px',
-              }}
-            />
-            <Bar dataKey="count" name="Applications" radius={[4, 4, 0, 0]}>
-              {funnelData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="space-y-4">
+          {funnelData.map((item, index) => (
+            <div key={index} className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="font-medium">{item.stage}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-muted">{item.count} apps</span>
+                  <span className="font-semibold min-w-[3rem] text-right">{item.percentage}%</span>
+                </div>
+              </div>
+              <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${item.percentage}%`,
+                    backgroundColor: item.color,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </ChartContainer>
 
       {/* Conversion Metrics Summary */}
