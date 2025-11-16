@@ -11,9 +11,10 @@ type FilterBarProps = {
   onFiltersChange: (filters: AnalyticsFilters) => void;
   companies: string[];
   locations: string[];
+  snapshotId?: string | null;
 };
 
-export default function FilterBar({ filters, onFiltersChange, companies, locations }: FilterBarProps) {
+export default function FilterBar({ filters, onFiltersChange, companies, locations, snapshotId }: FilterBarProps) {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [customStartDate, setCustomStartDate] = useState(filters.customStartDate || '');
   const [customEndDate, setCustomEndDate] = useState(filters.customEndDate || '');
@@ -66,8 +67,14 @@ export default function FilterBar({ filters, onFiltersChange, companies, locatio
         throw new Error('No authentication token');
       }
 
+      // Build URL with optional snapshot_id parameter
+      let url = '/analytics/filters';
+      if (snapshotId) {
+        url += `?snapshot_id=${snapshotId}`;
+      }
+
       // Save to backend
-      const res = await fetch(buildApiUrl('/analytics/filters'), {
+      const res = await fetch(buildApiUrl(url), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -84,7 +91,10 @@ export default function FilterBar({ filters, onFiltersChange, companies, locatio
         throw new Error('Failed to save filters to server');
       }
 
-      setSaveMessage('Filters saved successfully!');
+      const message = snapshotId
+        ? 'Snapshot filters saved successfully!'
+        : 'Default filters saved successfully!';
+      setSaveMessage(message);
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (error) {
       console.error('Failed to save filters:', error);

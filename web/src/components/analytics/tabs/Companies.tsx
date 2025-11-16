@@ -3,10 +3,10 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ProcessedAnalyticsData } from '@/types/analytics';
+import { ProcessedAnalyticsData, SimplifyJob } from '@/types/analytics';
 import ChartContainer from '../ChartContainer';
 import EmptyState from '../EmptyState';
-import LocationMap from '../LocationMap';
+import InteractiveLocationMap from '../InteractiveLocationMap';
 import {
   BarChart,
   Bar,
@@ -16,16 +16,14 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ScatterChart,
-  Scatter,
-  ZAxis,
 } from 'recharts';
 
 type CompaniesProps = {
   data: ProcessedAnalyticsData;
+  rawData?: SimplifyJob[];
 };
 
-export default function Companies({ data }: CompaniesProps) {
+export default function Companies({ data, rawData = [] }: CompaniesProps) {
   const { topCompanies, location } = data;
   const [showCount, setShowCount] = useState<10 | 20>(10);
 
@@ -53,17 +51,6 @@ export default function Companies({ data }: CompaniesProps) {
     ].filter(l => l.count > 0);
   }, [location]);
 
-  // Success rate vs applications scatter
-  const scatterData = useMemo(() => {
-    return topCompanies
-      .filter(c => c.totalApplications > 0)
-      .map(c => ({
-        x: c.totalApplications,
-        y: c.successRate,
-        name: c.company_name || c.company_id,
-        z: c.rejections,
-      }));
-  }, [topCompanies]);
 
   if (topCompanies.length === 0) {
     return <EmptyState title="No Company Data" description="No company analytics available" />;
@@ -229,59 +216,14 @@ export default function Companies({ data }: CompaniesProps) {
         description="Where you're applying to jobs"
         chartId="location-map"
       >
-        <LocationMap
+        <InteractiveLocationMap
           locations={location.locations}
           remoteCount={location.remoteCount}
           hybridCount={location.hybridCount}
+          jobsData={rawData}
         />
       </ChartContainer>
 
-      {/* Success Rate vs Applications Scatter */}
-      {scatterData.length > 0 && (
-        <ChartContainer
-          title="Success Rate vs Application Volume"
-          description="Correlation between how many times you apply and success rate"
-          chartId="scatter-chart"
-          exportData={{
-            name: 'Success Correlation',
-            data: scatterData,
-            headers: ['name', 'x', 'y', 'z'],
-          }}
-        >
-          <ResponsiveContainer width="100%" height={350}>
-            <ScatterChart>
-              <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-              <XAxis
-                type="number"
-                dataKey="x"
-                name="Applications"
-                stroke="#8b949e"
-                style={{ fontSize: '12px' }}
-                label={{ value: 'Total Applications', position: 'insideBottom', offset: -5, fill: '#8b949e' }}
-              />
-              <YAxis
-                type="number"
-                dataKey="y"
-                name="Success Rate"
-                stroke="#8b949e"
-                style={{ fontSize: '12px' }}
-                label={{ value: 'Success Rate (%)', angle: -90, position: 'insideLeft', fill: '#8b949e' }}
-              />
-              <ZAxis type="number" dataKey="z" range={[50, 400]} name="Rejections" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0f1117',
-                  border: '1px solid #21262d',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                }}
-                cursor={{ strokeDasharray: '3 3' }}
-              />
-              <Scatter name="Companies" data={scatterData} fill="#3b82f6" />
-            </ScatterChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      )}
     </div>
   );
 }

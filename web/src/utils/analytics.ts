@@ -192,8 +192,8 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
           totalResponseTimes.push(responseTime);
         }
       }
-      // Count interview and screening stages
-      if (eventStatus === 'screen' || eventStatus === 'interviewing') {
+      // Count interview stages (NOT including screen)
+      if (eventStatus === 'interviewing') {
         totalInterviews++;
       }
       // Count offer stages
@@ -203,6 +203,7 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
     });
   });
 
+  // Success rate = (interviews + offers) / total apps (NOT including screens)
   const successRate = totalApps > 0 ? ((totalInterviews + totalOffers) / totalApps) * 100 : 0;
   const avgResponseTime =
     totalResponseTimes.length > 0
@@ -459,16 +460,23 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
   const companyMap = new Map<string, CompanyStats>();
 
   data.forEach(job => {
-    // Skip jobs without company_id or status_events
-    // NOTE: If Top Companies chart is empty, check that:
-    // 1. Jobs have company_id field populated
-    // 2. Jobs have status_events with at least an 'applied' status
-    if (!job.company_id || !job.status_events || job.status_events.length === 0) return;
+    // Use company_name as fallback if company_id is missing
+    const companyId = job.company_id || job.company_name || 'Unknown';
+    const companyName = job.company_name || job.company_id || 'Unknown Company';
 
-    if (!companyMap.has(job.company_id)) {
-      companyMap.set(job.company_id, {
-        company_id: job.company_id,
-        company_name: job.company_name,
+    // Skip jobs without status_events
+    // NOTE: If Top Companies chart is empty, check that:
+    // 1. Jobs have company_id or company_name field populated
+    // 2. Jobs have status_events with at least an 'applied' status
+    if (!job.status_events || job.status_events.length === 0) return;
+
+    // Skip if both company_id and company_name are missing
+    if (!job.company_id && !job.company_name) return;
+
+    if (!companyMap.has(companyId)) {
+      companyMap.set(companyId, {
+        company_id: companyId,
+        company_name: companyName,
         totalApplications: 0,
         rejections: 0,
         interviews: 0,
@@ -477,7 +485,7 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
       });
     }
 
-    const stats = companyMap.get(job.company_id)!;
+    const stats = companyMap.get(companyId)!;
 
     const hasApplied = job.status_events?.some(e => normalizeStatus(e.status) === 'applied');
     if (hasApplied) {
