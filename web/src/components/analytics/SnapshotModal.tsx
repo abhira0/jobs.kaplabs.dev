@@ -14,6 +14,7 @@ type SnapshotModalProps = {
   onSnapshotCreated: () => void;
   onSnapshotDeleted: () => void;
   onSnapshotView: (snapshotId: string) => void;
+  currentFilters: any;
 };
 
 export default function SnapshotModal({
@@ -23,6 +24,7 @@ export default function SnapshotModal({
   onSnapshotCreated,
   onSnapshotDeleted,
   onSnapshotView,
+  currentFilters,
 }: SnapshotModalProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [newSnapshotName, setNewSnapshotName] = useState('');
@@ -46,6 +48,7 @@ export default function SnapshotModal({
       const snapshotData: SnapshotCreate = {
         name: newSnapshotName.trim(),
         description: newSnapshotDesc.trim() || undefined,
+        filters: currentFilters,
       };
 
       const res = await fetch(buildApiUrl('/analytics/snapshots'), {

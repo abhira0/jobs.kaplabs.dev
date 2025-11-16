@@ -11,10 +11,9 @@ type FilterBarProps = {
   onFiltersChange: (filters: AnalyticsFilters) => void;
   companies: string[];
   locations: string[];
-  isSnapshotView?: boolean;
 };
 
-export default function FilterBar({ filters, onFiltersChange, companies, locations, isSnapshotView = false }: FilterBarProps) {
+export default function FilterBar({ filters, onFiltersChange, companies, locations }: FilterBarProps) {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [customStartDate, setCustomStartDate] = useState(filters.customStartDate || '');
   const [customEndDate, setCustomEndDate] = useState(filters.customEndDate || '');
@@ -122,8 +121,7 @@ export default function FilterBar({ filters, onFiltersChange, companies, locatio
             <select
               value={filters.dateRange}
               onChange={(e) => handleDateRangeChange(e.target.value as DateRange)}
-              disabled={isSnapshotView}
-              className="px-3 py-2 rounded-md bg-white/10 border border-default text-sm font-medium transition-colors hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]"
+              className="px-3 py-2 rounded-md bg-white/10 border border-default text-sm font-medium transition-colors hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
             >
               {dateRangeOptions.map((option) => (
                 <option key={option.value} value={option.value} className="bg-gray-900">
@@ -132,26 +130,22 @@ export default function FilterBar({ filters, onFiltersChange, companies, locatio
               ))}
             </select>
 
-            {!isSnapshotView && (
-              <>
-                <button
-                  onClick={handleSaveFilters}
-                  disabled={isSaving}
-                  className="px-4 py-2 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  title="Save current filter settings"
-                >
-                  {isSaving ? 'Saving...' : 'Save Filters'}
-                </button>
+            <button
+              onClick={handleSaveFilters}
+              disabled={isSaving}
+              className="px-4 py-2 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              title="Save current filter settings"
+            >
+              {isSaving ? 'Saving...' : 'Save Filters'}
+            </button>
 
-                {hasActiveFilters && (
-                  <button
-                    onClick={handleReset}
-                    className="px-4 py-2 rounded-md bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors whitespace-nowrap"
-                  >
-                    Reset
-                  </button>
-                )}
-              </>
+            {hasActiveFilters && (
+              <button
+                onClick={handleReset}
+                className="px-4 py-2 rounded-md bg-white/5 hover:bg-white/10 text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                Reset
+              </button>
             )}
           </div>
 
@@ -202,12 +196,6 @@ export default function FilterBar({ filters, onFiltersChange, companies, locatio
             >
               Apply
             </button>
-          </div>
-        )}
-
-        {isSnapshotView && (
-          <div className="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-md px-3 py-2">
-            You are viewing a snapshot. Filters are disabled. Exit snapshot view to modify filters.
           </div>
         )}
       </div>

@@ -267,28 +267,42 @@ const processSalaryData = (data: SimplifyJob[]): SalaryData => {
 };
 
 // Process Daily Data
-const processDailyData = (data: SimplifyJob[]): DailyStatsMap => {
+const processDailyData = (data: SimplifyJob[], filters?: AnalyticsFilters): DailyStatsMap => {
   const dailyStats: DailyStatsMap = {};
 
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  // Determine the end date (latest date to show)
+  let endDate = new Date();
+  if (filters?.dateRange === 'custom' && filters.customEndDate) {
+    endDate = new Date(filters.customEndDate);
+  }
+  endDate.setUTCHours(0, 0, 0, 0);
 
-  let earliestDate = new Date();
-  earliestDate.setUTCHours(0, 0, 0, 0);
+  // Determine the start date (earliest date to show)
+  let startDate = new Date();
+  if (filters?.dateRange === 'custom' && filters.customStartDate) {
+    startDate = new Date(filters.customStartDate);
+  } else if (filters?.dateRange && filters.dateRange !== 'all') {
+    const daysMap = { '7d': 7, '14d': 14, '30d': 30, '60d': 60, '90d': 90 };
+    const days = daysMap[filters.dateRange as keyof typeof daysMap] || 0;
+    startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - days);
+  } else {
+    // Find earliest date in data
+    startDate = new Date();
+    data.forEach(job => {
+      if (!job.tracked_date) return;
+      const jobDate = new Date(job.tracked_date);
+      jobDate.setUTCHours(0, 0, 0, 0);
+      if (jobDate < startDate) {
+        startDate = jobDate;
+      }
+    });
+  }
+  startDate.setUTCHours(0, 0, 0, 0);
 
-  // Find earliest date
-  data.forEach(job => {
-    if (!job.tracked_date) return;
-    const jobDate = new Date(job.tracked_date);
-    jobDate.setUTCHours(0, 0, 0, 0);
-    if (jobDate < earliestDate) {
-      earliestDate = jobDate;
-    }
-  });
-
-  // Initialize all dates
-  const currentDate = new Date(today);
-  while (currentDate >= earliestDate) {
+  // Initialize all dates from start to end
+  const currentDate = new Date(endDate);
+  while (currentDate >= startDate) {
     const dateStr = currentDate.toISOString().split('T')[0];
     dailyStats[dateStr] = {
       totalApplications: 0,
@@ -661,8 +675,8 @@ const processSuccessRateTrend = (dailyStats: DailyStatsMap): TrendDataPoint[] =>
 };
 
 // Main processing function
-export const processAnalyticsData = (data: SimplifyJob[]): ProcessedAnalyticsData => {
-  const daily = processDailyData(data);
+export const processAnalyticsData = (data: SimplifyJob[], filters?: AnalyticsFilters): ProcessedAnalyticsData => {
+  const daily = processDailyData(data, filters);
 
   return {
     summary: processSummaryStats(data),

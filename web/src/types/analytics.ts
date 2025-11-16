@@ -162,6 +162,7 @@ export type Snapshot = {
   description?: string;
   created_at: string;
   data_count: number;
+  filters?: AnalyticsFilters;
 };
 
 export type SnapshotWithData = {
@@ -171,9 +172,11 @@ export type SnapshotWithData = {
   description?: string;
   created_at: string;
   data: SimplifyJob[];
+  filters?: AnalyticsFilters;
 };
 
 export type SnapshotCreate = {
   name: string;
   description?: string;
+  filters?: AnalyticsFilters;
 };

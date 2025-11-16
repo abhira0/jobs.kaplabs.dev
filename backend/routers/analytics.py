@@ -33,7 +33,8 @@ async def list_snapshots(
                 name=snapshot["name"],
                 description=snapshot.get("description"),
                 created_at=snapshot["created_at"],
-                data_count=len(snapshot.get("data", []))
+                data_count=len(snapshot.get("data", [])),
+                filters=snapshot.get("filters")
             ))
 
         return response
@@ -86,7 +87,8 @@ async def create_snapshot(
             "name": snapshot_data.name,
             "description": snapshot_data.description,
             "created_at": datetime.utcnow(),
-            "data": data
+            "data": data,
+            "filters": snapshot_data.filters if snapshot_data.filters else None
         }
 
         # Insert into database
@@ -100,7 +102,8 @@ async def create_snapshot(
             name=snapshot["name"],
             description=snapshot["description"],
             created_at=snapshot["created_at"],
-            data_count=len(data)
+            data_count=len(data),
+            filters=snapshot["filters"]
         )
     except HTTPException:
         raise
@@ -137,7 +140,8 @@ async def get_snapshot(
             "name": snapshot["name"],
             "description": snapshot.get("description"),
             "created_at": snapshot["created_at"],
-            "data": snapshot["data"]
+            "data": snapshot["data"],
+            "filters": snapshot.get("filters")
         }
     except HTTPException:
         raise
