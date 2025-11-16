@@ -152,6 +152,16 @@ class AddCoordinates:
 
 
 class StatusEvents:
+    """Convert Simplify API status codes to string values.
+
+    Known status codes from Simplify API:
+    1 = saved (bookmarked but not applied)
+    2 = applied
+    11 = screen/interviewing
+    23 = rejected
+
+    Any unknown status codes are converted to strings for safety.
+    """
     def __init__(self, input):
         self.input = input
         self.process()
@@ -159,6 +169,11 @@ class StatusEvents:
     def process(self):
         for item in self.input.data:
             for status in item["status_events"]:
+                # Skip if already a string (already processed)
+                if isinstance(status["status"], str):
+                    continue
+
+                # Convert status code to string value
                 if status["status"] == 1:
                     status["status"] = "saved"
                 elif status["status"] == 2:
@@ -167,6 +182,15 @@ class StatusEvents:
                     status["status"] = "screen"
                 elif status["status"] == 23:
                     status["status"] = "rejected"
+                else:
+                    # Unknown status code - convert to string to prevent frontend errors
+                    original_status = status["status"]
+                    status["status"] = f"unknown_{original_status}"
+                    logger.warning(
+                        f"Unknown status code {original_status} encountered. "
+                        f"Converted to 'unknown_{original_status}'. "
+                        f"Job ID: {item.get('id', 'unknown')}"
+                    )
 
 
 
