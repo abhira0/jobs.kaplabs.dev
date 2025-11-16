@@ -57,21 +57,37 @@ export default function FilterBar({ filters, onFiltersChange, companies, locatio
   };
 
   const handleSaveFilters = async () => {
-    // For now, just save to localStorage
-    // Backend endpoint can be added later if needed
     setIsSaving(true);
     setSaveMessage(null);
 
     try {
-      localStorage.setItem('analytics_filters', JSON.stringify({
-        dateRange: filters.dateRange,
-        customStartDate: filters.customStartDate,
-        customEndDate: filters.customEndDate,
-      }));
+      const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        throw new Error('No authentication token');
+      }
+
+      // Save to backend
+      const res = await fetch(buildApiUrl('/analytics/filters'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date_range: filters.dateRange,
+          custom_start_date: filters.customStartDate,
+          custom_end_date: filters.customEndDate,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save filters to server');
+      }
 
       setSaveMessage('Filters saved successfully!');
       setTimeout(() => setSaveMessage(null), 3000);
     } catch (error) {
+      console.error('Failed to save filters:', error);
       setSaveMessage('Failed to save filters');
       setTimeout(() => setSaveMessage(null), 5000);
     } finally {
