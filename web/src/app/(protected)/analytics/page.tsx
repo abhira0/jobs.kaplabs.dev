@@ -16,9 +16,8 @@ import Overview from '@/components/analytics/tabs/Overview';
 import Applications from '@/components/analytics/tabs/Applications';
 import Companies from '@/components/analytics/tabs/Companies';
 import Compensation from '@/components/analytics/tabs/Compensation';
-import Performance from '@/components/analytics/tabs/Performance';
 
-type Tab = 'overview' | 'applications' | 'companies' | 'compensation' | 'performance';
+type Tab = 'overview' | 'applications' | 'companies' | 'compensation';
 
 // Fetcher function for SWR
 const fetcher = async (url: string): Promise<SimplifyJob[]> => {
@@ -154,9 +153,36 @@ function AnalyticsPageInner() {
     }
   };
 
-  // Fetch snapshots on mount
+  // Fetch saved filters
+  const fetchSavedFilters = async () => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(buildApiUrl('/analytics/filters'), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Only apply filters if the user hasn't manually changed them yet
+        // Check if we're viewing a snapshot - don't override snapshot filters
+        if (!viewingSnapshot && filters.dateRange === 'all') {
+          setFilters({
+            dateRange: data.date_range || 'all',
+            customStartDate: data.custom_start_date,
+            customEndDate: data.custom_end_date,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch saved filters:', error);
+    }
+  };
+
+  // Fetch snapshots and saved filters on mount
   useEffect(() => {
     fetchSnapshots();
+    fetchSavedFilters();
   }, []);
 
   // View snapshot
@@ -195,7 +221,6 @@ function AnalyticsPageInner() {
     { id: 'applications', label: 'Applications' },
     { id: 'companies', label: 'Companies' },
     { id: 'compensation', label: 'Compensation' },
-    { id: 'performance', label: 'Performance' },
   ];
 
   // Loading state
@@ -356,7 +381,6 @@ function AnalyticsPageInner() {
         {activeTab === 'applications' && <Applications data={processedData} />}
         {activeTab === 'companies' && <Companies data={processedData} />}
         {activeTab === 'compensation' && <Compensation data={processedData} />}
-        {activeTab === 'performance' && <Performance data={processedData} />}
       </div>
 
       {/* Snapshot Modal */}

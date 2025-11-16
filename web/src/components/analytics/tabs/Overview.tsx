@@ -2,10 +2,12 @@
 
 'use client';
 
+import { useMemo } from 'react';
 import { ProcessedAnalyticsData } from '@/types/analytics';
 import StatCard from '../StatCard';
 import ChartContainer from '../ChartContainer';
 import EmptyState from '../EmptyState';
+import SankeyDiagram from '../SankeyDiagram';
 import {
   AreaChart,
   Area,
@@ -26,7 +28,7 @@ type OverviewProps = {
 };
 
 export default function Overview({ data }: OverviewProps) {
-  const { summary, weeklyTrend, statusDistribution, dayOfWeek } = data;
+  const { summary, weeklyTrend, statusDistribution, dayOfWeek, applicationFunnel } = data;
 
   // Prepare data for charts
   const statusData = Object.entries(statusDistribution)
@@ -42,6 +44,44 @@ export default function Overview({ data }: OverviewProps) {
   }));
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+
+  // Prepare Sankey diagram data
+  const sankeyData = useMemo(() => {
+    const colorMap: Record<string, string> = {
+      'Saved': '#6366f1',
+      'Applied': '#3b82f6',
+      'Screen': '#f59e0b',
+      'Interviewing': '#8b5cf6',
+      'Offer': '#10b981',
+      'Rejected': '#ef4444',
+      'Accepted': '#22c55e',
+    };
+
+    const nodes = applicationFunnel.map(stage => ({
+      name: stage.name,
+      value: stage.value,
+      color: colorMap[stage.name] || '#6366f1',
+    }));
+
+    // Create links between sequential stages
+    const links = [];
+    for (let i = 0; i < applicationFunnel.length - 1; i++) {
+      const current = applicationFunnel[i];
+      const next = applicationFunnel[i + 1];
+
+      // Only create link if there's flow (next stage has values)
+      if (next.value > 0) {
+        links.push({
+          source: current.name,
+          target: next.name,
+          value: next.value,
+          color: colorMap[next.name] || '#6366f1',
+        });
+      }
+    }
+
+    return { nodes, links };
+  }, [applicationFunnel]);
 
   if (!weeklyTrend || weeklyTrend.length === 0) {
     return <EmptyState title="No Data" description="No analytics data available yet. Start applying to jobs to see insights!" />;
@@ -121,6 +161,20 @@ export default function Overview({ data }: OverviewProps) {
             />
           </AreaChart>
         </ResponsiveContainer>
+      </ChartContainer>
+
+      {/* Application Funnel - Sankey Diagram */}
+      <ChartContainer
+        title="Application Funnel"
+        description="Flow of applications through different stages"
+        chartId="application-funnel-chart"
+        exportData={{
+          name: 'Application Funnel',
+          data: applicationFunnel,
+          headers: ['name', 'value', 'percentage'],
+        }}
+      >
+        <SankeyDiagram nodes={sankeyData.nodes} links={sankeyData.links} />
       </ChartContainer>
 
       {/* Status Distribution and Day of Week */}

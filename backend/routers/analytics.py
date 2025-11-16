@@ -4,6 +4,7 @@ from datetime import datetime
 from ..dependencies import get_current_user
 from backend.utils.db import get_database
 from backend.models.analytics_snapshot import AnalyticsSnapshot, SnapshotCreate, SnapshotResponse
+from backend.models.analytics_filters import FiltersUpdate, FiltersResponse
 from bson import ObjectId
 import json
 import os
@@ -178,4 +179,74 @@ async def delete_snapshot(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete snapshot: {str(e)}"
+        )
+
+# Default Filter Preferences
+@router.get("/filters", response_model=FiltersResponse)
+async def get_default_filters(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's saved default filter preferences"""
+    db = get_database()
+
+    try:
+        filters = await db.analytics_filters.find_one({
+            "username": current_user["username"]
+        })
+
+        if not filters:
+            # Return default values
+            return FiltersResponse(
+                date_range="all",
+                custom_start_date=None,
+                custom_end_date=None,
+                updated_at=None
+            )
+
+        return FiltersResponse(
+            date_range=filters.get("date_range", "all"),
+            custom_start_date=filters.get("custom_start_date"),
+            custom_end_date=filters.get("custom_end_date"),
+            updated_at=filters.get("updated_at")
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch filter preferences: {str(e)}"
+        )
+
+@router.post("/filters", response_model=FiltersResponse)
+async def save_default_filters(
+    filters_update: FiltersUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Save user's default filter preferences"""
+    db = get_database()
+
+    try:
+        filter_data = {
+            "username": current_user["username"],
+            "date_range": filters_update.date_range,
+            "custom_start_date": filters_update.custom_start_date,
+            "custom_end_date": filters_update.custom_end_date,
+            "updated_at": datetime.utcnow()
+        }
+
+        # Upsert - update if exists, insert if not
+        await db.analytics_filters.update_one(
+            {"username": current_user["username"]},
+            {"$set": filter_data},
+            upsert=True
+        )
+
+        return FiltersResponse(
+            date_range=filter_data["date_range"],
+            custom_start_date=filter_data["custom_start_date"],
+            custom_end_date=filter_data["custom_end_date"],
+            updated_at=filter_data["updated_at"]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save filter preferences: {str(e)}"
         )
