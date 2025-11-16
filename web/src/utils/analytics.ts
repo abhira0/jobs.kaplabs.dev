@@ -192,8 +192,8 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
           totalResponseTimes.push(responseTime);
         }
       }
-      // Count interview and screening stages
-      if (eventStatus === 'screen' || eventStatus === 'interviewing') {
+      // Count interview stages (NOT including screen)
+      if (eventStatus === 'interviewing') {
         totalInterviews++;
       }
       // Count offer stages
@@ -203,6 +203,7 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
     });
   });
 
+  // Success rate = (interviews + offers) / total apps (NOT including screens)
   const successRate = totalApps > 0 ? ((totalInterviews + totalOffers) / totalApps) * 100 : 0;
   const avgResponseTime =
     totalResponseTimes.length > 0

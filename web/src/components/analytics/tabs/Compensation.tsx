@@ -24,12 +24,11 @@ type CompensationProps = {
 export default function Compensation({ data }: CompensationProps) {
   const { salary } = data;
 
-  // Prepare salary distribution data
+  // Prepare salary distribution data - only showing all positions
   const salaryData = Object.entries(salary.all).map(([range, count]) => ({
     range: `$${range}K`,
-    all: count,
-    hourly: salary.hourly[range as keyof typeof salary.hourly] || 0,
-  })).filter(item => item.all > 0 || item.hourly > 0);
+    positions: count,
+  })).filter(item => item.positions > 0);
 
   // Calculate average ranges
   const avgSalaryRange = () => {
@@ -70,17 +69,11 @@ export default function Compensation({ data }: CompensationProps) {
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard
-          title="All Positions with Salary"
+          title="Positions with Salary Data"
           value={salary.allTotal}
-          subtitle="Including all pay periods"
-          format="number"
-        />
-        <StatCard
-          title="Hourly/Short-term Positions"
-          value={salary.hourlyTotal}
-          subtitle={`Hourly, daily, or weekly pay (${Math.round((salary.hourlyTotal / salary.allTotal) * 100)}% of total)`}
+          subtitle="All positions with compensation information"
           format="number"
         />
         <StatCard
@@ -88,19 +81,19 @@ export default function Compensation({ data }: CompensationProps) {
           value={avgRange}
           prefix="$"
           suffix="K"
-          subtitle="Estimated midpoint"
+          subtitle="Estimated midpoint across all positions"
         />
       </div>
 
-      {/* Salary Distribution Comparison */}
+      {/* Salary Distribution */}
       <ChartContainer
-        title="Salary Distribution by Pay Period"
-        description="All positions (annual, monthly, biweekly, weekly, daily, hourly) vs hourly/short-term positions only (hourly, daily, weekly)"
+        title="Salary Distribution"
+        description="Distribution of positions across salary ranges"
         chartId="salary-distribution-chart"
         exportData={{
           name: 'Salary Distribution',
           data: salaryData,
-          headers: ['range', 'all', 'hourly'],
+          headers: ['range', 'positions'],
         }}
       >
         <ResponsiveContainer width="100%" height={400}>
@@ -120,17 +113,10 @@ export default function Compensation({ data }: CompensationProps) {
                 fontSize: '12px',
               }}
             />
-            <Legend />
             <Bar
-              dataKey="all"
+              dataKey="positions"
               fill="#3b82f6"
-              name="All Positions (all pay periods)"
-              radius={[4, 4, 0, 0]}
-            />
-            <Bar
-              dataKey="hourly"
-              fill="#10b981"
-              name="Hourly/Short-term (hourly/daily/weekly)"
+              name="Positions"
               radius={[4, 4, 0, 0]}
             />
           </BarChart>
@@ -147,8 +133,7 @@ export default function Compensation({ data }: CompensationProps) {
             <thead>
               <tr className="border-b border-default">
                 <th className="text-left py-3 px-4 text-sm font-medium text-muted">Salary Range</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-muted">All Positions</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-muted">Hourly/Short-term</th>
+                <th className="text-right py-3 px-4 text-sm font-medium text-muted">Positions</th>
                 <th className="text-right py-3 px-4 text-sm font-medium text-muted">% of Total</th>
               </tr>
             </thead>
@@ -156,17 +141,15 @@ export default function Compensation({ data }: CompensationProps) {
               {salaryData.map((item, idx) => (
                 <tr key={idx} className="border-b border-default/50 hover:bg-white/5 transition-colors">
                   <td className="py-3 px-4 text-sm font-medium">{item.range}</td>
-                  <td className="text-right py-3 px-4 text-sm">{item.all}</td>
-                  <td className="text-right py-3 px-4 text-sm">{item.hourly}</td>
+                  <td className="text-right py-3 px-4 text-sm">{item.positions}</td>
                   <td className="text-right py-3 px-4 text-sm text-muted">
-                    {((item.all / salary.allTotal) * 100).toFixed(1)}%
+                    {((item.positions / salary.allTotal) * 100).toFixed(1)}%
                   </td>
                 </tr>
               ))}
               <tr className="border-t-2 border-default font-semibold">
                 <td className="py-3 px-4 text-sm">Total</td>
                 <td className="text-right py-3 px-4 text-sm">{salary.allTotal}</td>
-                <td className="text-right py-3 px-4 text-sm">{salary.hourlyTotal}</td>
                 <td className="text-right py-3 px-4 text-sm">100%</td>
               </tr>
             </tbody>

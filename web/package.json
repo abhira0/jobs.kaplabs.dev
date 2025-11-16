@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@nivo/sankey": "^0.99.0",
+    "d3-geo": "^3.1.1",
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
@@ -16,6 +18,7 @@
     "next": "^15.5.6",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-simple-maps": "^3.0.0",
     "recharts": "^3.4.1",
     "swr": "^2.3.6"
   },

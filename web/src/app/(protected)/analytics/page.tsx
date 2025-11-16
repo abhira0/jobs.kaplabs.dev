@@ -16,8 +16,9 @@ import Overview from '@/components/analytics/tabs/Overview';
 import Applications from '@/components/analytics/tabs/Applications';
 import Companies from '@/components/analytics/tabs/Companies';
 import Compensation from '@/components/analytics/tabs/Compensation';
+import Insights from '@/components/analytics/tabs/Insights';
 
-type Tab = 'overview' | 'applications' | 'companies' | 'compensation';
+type Tab = 'overview' | 'applications' | 'insights' | 'companies' | 'compensation';
 
 // Fetcher function for SWR
 const fetcher = async (url: string): Promise<SimplifyJob[]> => {
@@ -219,6 +220,7 @@ function AnalyticsPageInner() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'applications', label: 'Applications' },
+    { id: 'insights', label: 'Insights' },
     { id: 'companies', label: 'Companies' },
     { id: 'compensation', label: 'Compensation' },
   ];
@@ -379,6 +381,7 @@ function AnalyticsPageInner() {
       <div role="tabpanel">
         {activeTab === 'overview' && <Overview data={processedData} />}
         {activeTab === 'applications' && <Applications data={processedData} />}
+        {activeTab === 'insights' && <Insights data={processedData} />}
         {activeTab === 'companies' && <Companies data={processedData} />}
         {activeTab === 'compensation' && <Compensation data={processedData} />}
       </div>

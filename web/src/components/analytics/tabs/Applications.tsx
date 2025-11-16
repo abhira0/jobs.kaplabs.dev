@@ -20,6 +20,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Brush,
 } from 'recharts';
 import { format } from 'date-fns';
 
@@ -170,6 +171,13 @@ export default function Applications({ data }: ApplicationsProps) {
               name="Rejections"
               dot={{ r: 3 }}
             />
+            <Brush
+              dataKey="label"
+              height={30}
+              stroke="#3b82f6"
+              fill="#1e293b"
+              travellerWidth={10}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </ChartContainer>
@@ -218,6 +226,13 @@ export default function Applications({ data }: ApplicationsProps) {
                 fillOpacity={1}
                 fill="url(#colorCumulative)"
                 name="Total Applications"
+              />
+              <Brush
+                dataKey="label"
+                height={30}
+                stroke="#3b82f6"
+                fill="#1e293b"
+                travellerWidth={10}
               />
             </AreaChart>
           </ResponsiveContainer>

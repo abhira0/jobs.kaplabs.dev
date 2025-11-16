@@ -21,6 +21,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Brush,
 } from 'recharts';
 
 type OverviewProps = {
@@ -159,6 +160,13 @@ export default function Overview({ data }: OverviewProps) {
               fillOpacity={1}
               fill="url(#colorApplications)"
             />
+            <Brush
+              dataKey="label"
+              height={30}
+              stroke="#3b82f6"
+              fill="#1e293b"
+              travellerWidth={10}
+            />
           </AreaChart>
         </ResponsiveContainer>
       </ChartContainer>
@@ -197,9 +205,30 @@ export default function Overview({ data }: OverviewProps) {
                   data={statusData}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
-                  outerRadius={100}
+                  labelLine={true}
+                  label={({ name, percent, x, y, midAngle, innerRadius, outerRadius }) => {
+                    // Only show labels for segments > 5%
+                    if (percent < 0.05) return null;
+
+                    const RADIAN = Math.PI / 180;
+                    const radius = outerRadius + 25;
+                    const labelX = x + radius * Math.cos(-midAngle * RADIAN);
+                    const labelY = y + radius * Math.sin(-midAngle * RADIAN);
+
+                    return (
+                      <text
+                        x={labelX}
+                        y={labelY}
+                        fill="white"
+                        textAnchor={labelX > x ? 'start' : 'end'}
+                        dominantBaseline="central"
+                        style={{ fontSize: '12px', fontWeight: 500 }}
+                      >
+                        {`${name} ${(percent * 100).toFixed(0)}%`}
+                      </text>
+                    );
+                  }}
+                  outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
                 >
@@ -213,6 +242,13 @@ export default function Overview({ data }: OverviewProps) {
                     border: '1px solid #21262d',
                     borderRadius: '8px',
                     fontSize: '12px',
+                    color: '#ffffff',
+                  }}
+                  itemStyle={{
+                    color: '#ffffff',
+                  }}
+                  labelStyle={{
+                    color: '#ffffff',
                   }}
                 />
               </PieChart>
