@@ -320,6 +320,7 @@ function AnalyticsPageInner() {
         onFiltersChange={setFilters}
         companies={companies}
         locations={locations}
+        isSnapshotView={!!viewingSnapshot}
       />
 
       {/* Tab Navigation */}

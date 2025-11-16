@@ -57,7 +57,15 @@ const normalizeStatus = (status: string | number): string => {
   const statusMap: Record<number, string> = {
     1: 'saved',
     2: 'applied',
+    3: 'phone screen',
+    4: 'technical screen',
+    5: 'onsite',
+    6: 'offer',
+    7: 'accepted',
+    8: 'declined',
+    9: 'withdrawn',
     11: 'screen',
+    12: 'interviewing',
     23: 'rejected',
   };
 
@@ -190,8 +198,16 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
           totalResponseTimes.push(responseTime);
         }
       }
-      if (eventStatus === 'interviewing') totalInterviews++;
-      if (eventStatus === 'offer') totalOffers++;
+      // Count all interview-related statuses
+      if (eventStatus === 'interviewing' || eventStatus === 'phone screen' ||
+          eventStatus === 'technical screen' || eventStatus === 'onsite' ||
+          eventStatus === 'screen') {
+        totalInterviews++;
+      }
+      // Count all offer-related statuses
+      if (eventStatus === 'offer' || eventStatus === 'accepted' || eventStatus === 'declined') {
+        totalOffers++;
+      }
     });
   });
 
@@ -298,10 +314,14 @@ const processDailyData = (data: SimplifyJob[]): DailyStatsMap => {
       if (eventStatus === 'rejected') {
         dailyStats[eventDate].rejections++;
       }
-      if (eventStatus === 'interviewing') {
+      // Count all interview-related statuses
+      if (eventStatus === 'interviewing' || eventStatus === 'phone screen' ||
+          eventStatus === 'technical screen' || eventStatus === 'onsite' ||
+          eventStatus === 'screen') {
         dailyStats[eventDate].interviews = (dailyStats[eventDate].interviews || 0) + 1;
       }
-      if (eventStatus === 'offer') {
+      // Count all offer-related statuses
+      if (eventStatus === 'offer' || eventStatus === 'accepted' || eventStatus === 'declined') {
         dailyStats[eventDate].offers = (dailyStats[eventDate].offers || 0) + 1;
       }
     });
@@ -407,16 +427,20 @@ const processStatusDistribution = (data: SimplifyJob[]): StatusDistribution => {
     else if (currentStatus === 'rejected' || currentStatus === 'rejection') {
       distribution.rejected++;
     }
-    else if (currentStatus === 'interviewing' || currentStatus === 'interview' || currentStatus === 'phone screen' || currentStatus === 'onsite') {
+    // All interview stages count as interviewing
+    else if (currentStatus === 'interviewing' || currentStatus === 'interview' ||
+             currentStatus === 'phone screen' || currentStatus === 'technical screen' ||
+             currentStatus === 'onsite' || currentStatus === 'screen') {
       distribution.interviewing++;
     }
+    // Offers (received but not yet accepted/declined)
     else if (currentStatus === 'offer' || currentStatus === 'offered') {
       distribution.offer++;
     }
     else if (currentStatus === 'accepted') {
       distribution.accepted++;
     }
-    else if (currentStatus === 'withdrawn' || currentStatus === 'withdraw') {
+    else if (currentStatus === 'withdrawn' || currentStatus === 'withdraw' || currentStatus === 'declined') {
       distribution.withdrawn++;
     }
     else {
@@ -433,6 +457,10 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
   const companyMap = new Map<string, CompanyStats>();
 
   data.forEach(job => {
+    // Skip jobs without company_id or status_events
+    // NOTE: If Top Companies chart is empty, check that:
+    // 1. Jobs have company_id field populated
+    // 2. Jobs have status_events with at least an 'applied' status
     if (!job.company_id || !job.status_events || job.status_events.length === 0) return;
 
     if (!companyMap.has(job.company_id)) {
@@ -464,9 +492,13 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
     if (currentStatus === 'rejected' || currentStatus === 'rejection') {
       stats.rejections++;
     }
-    if (currentStatus === 'interviewing' || currentStatus === 'interview' || currentStatus === 'phone screen' || currentStatus === 'onsite') {
+    // All interview stages
+    if (currentStatus === 'interviewing' || currentStatus === 'interview' ||
+        currentStatus === 'phone screen' || currentStatus === 'technical screen' ||
+        currentStatus === 'onsite' || currentStatus === 'screen') {
       stats.interviews++;
     }
+    // All offer stages
     if (currentStatus === 'offer' || currentStatus === 'offered' || currentStatus === 'accepted') {
       stats.offers++;
     }

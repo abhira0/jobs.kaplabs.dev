@@ -70,7 +70,7 @@ export default function ChartContainer({
                   />
                 </svg>
               </button>
-              <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-default rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <div className="absolute right-0 top-full mt-1 w-40 bg-gray-900 border border-default rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                 {exportData && (
                   <button
                     onClick={handleExportCSV}

@@ -1,6 +1,6 @@
 # backend/routers/applications.py
 from fastapi import APIRouter, Depends, HTTPException
-from backend.schemas.application import ApplicationUpdate, ApplicationResponse
+from backend.schemas.application import ApplicationUpdate, BulkApplicationUpdate, ApplicationResponse
 from backend.dependencies import get_current_user
 from backend.utils.db import get_database
 import json
@@ -76,6 +76,46 @@ async def update_application(
     
     apps[application.status] = status_list
     
+    await db.applications.update_one(
+        {"username": username},
+        {"$set": user_applications},
+        upsert=True
+    )
+
+    return user_applications
+
+@router.post("/bulk", response_model=ApplicationResponse)
+async def bulk_update_applications(
+    bulk_update: BulkApplicationUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Bulk update multiple applications at once to prevent API flooding"""
+    db = get_database()
+    username = current_user["username"]
+
+    # Get or create user's applications
+    user_applications = await db.applications.find_one({"username": username})
+    if not user_applications:
+        user_applications = {
+            "username": username,
+            "applications": {username: {"applied": [], "hidden": []}}
+        }
+
+    all_applied_jobs = await get_applied_ids(username, user_applications["applications"][username]["applied"])
+    user_applications["applications"][username]["applied"] = all_applied_jobs
+
+    apps = user_applications["applications"][username]
+    status_list = apps.get(bulk_update.status, [])
+
+    # Process all job IDs in bulk
+    for job_id in bulk_update.job_ids:
+        if bulk_update.value and job_id not in status_list:
+            status_list.append(job_id)
+        elif not bulk_update.value and job_id in status_list:
+            status_list.remove(job_id)
+
+    apps[bulk_update.status] = status_list
+
     await db.applications.update_one(
         {"username": username},
         {"$set": user_applications},

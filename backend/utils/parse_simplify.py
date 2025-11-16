@@ -157,7 +157,15 @@ class StatusEvents:
     Known status codes from Simplify API:
     1 = saved (bookmarked but not applied)
     2 = applied
-    11 = screen/interviewing
+    3 = phone screen
+    4 = technical screen
+    5 = onsite interview
+    6 = offer received
+    7 = offer accepted
+    8 = offer declined
+    9 = withdrawn
+    11 = screening (generic)
+    12 = interviewing
     23 = rejected
 
     Any unknown status codes are converted to strings for safety.
@@ -174,17 +182,34 @@ class StatusEvents:
                     continue
 
                 # Convert status code to string value
-                if status["status"] == 1:
+                original_status = status["status"]
+
+                if original_status == 1:
                     status["status"] = "saved"
-                elif status["status"] == 2:
+                elif original_status == 2:
                     status["status"] = "applied"
-                elif status["status"] == 11:
+                elif original_status == 3:
+                    status["status"] = "phone screen"
+                elif original_status == 4:
+                    status["status"] = "technical screen"
+                elif original_status == 5:
+                    status["status"] = "onsite"
+                elif original_status == 6:
+                    status["status"] = "offer"
+                elif original_status == 7:
+                    status["status"] = "accepted"
+                elif original_status == 8:
+                    status["status"] = "declined"
+                elif original_status == 9:
+                    status["status"] = "withdrawn"
+                elif original_status == 11:
                     status["status"] = "screen"
-                elif status["status"] == 23:
+                elif original_status == 12:
+                    status["status"] = "interviewing"
+                elif original_status == 23:
                     status["status"] = "rejected"
                 else:
                     # Unknown status code - convert to string to prevent frontend errors
-                    original_status = status["status"]
                     status["status"] = f"unknown_{original_status}"
                     logger.warning(
                         f"Unknown status code {original_status} encountered. "

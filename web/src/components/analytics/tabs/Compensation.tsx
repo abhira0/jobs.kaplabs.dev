@@ -72,14 +72,15 @@ export default function Compensation({ data }: CompensationProps) {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
-          title="Jobs with Salary Info"
+          title="All Positions with Salary"
           value={salary.allTotal}
+          subtitle="Including all pay periods"
           format="number"
         />
         <StatCard
-          title="Hourly/Short-term Jobs"
+          title="Hourly/Short-term Positions"
           value={salary.hourlyTotal}
-          subtitle={`${Math.round((salary.hourlyTotal / salary.allTotal) * 100)}% of total`}
+          subtitle={`Hourly, daily, or weekly pay (${Math.round((salary.hourlyTotal / salary.allTotal) * 100)}% of total)`}
           format="number"
         />
         <StatCard
@@ -93,8 +94,8 @@ export default function Compensation({ data }: CompensationProps) {
 
       {/* Salary Distribution Comparison */}
       <ChartContainer
-        title="Salary Distribution"
-        description="Comparison of all positions vs hourly/short-term only"
+        title="Salary Distribution by Pay Period"
+        description="All positions (annual, monthly, biweekly, weekly, daily, hourly) vs hourly/short-term positions only (hourly, daily, weekly)"
         chartId="salary-distribution-chart"
         exportData={{
           name: 'Salary Distribution',
@@ -123,13 +124,13 @@ export default function Compensation({ data }: CompensationProps) {
             <Bar
               dataKey="all"
               fill="#3b82f6"
-              name="All Positions"
+              name="All Positions (all pay periods)"
               radius={[4, 4, 0, 0]}
             />
             <Bar
               dataKey="hourly"
               fill="#10b981"
-              name="Hourly/Short-term"
+              name="Hourly/Short-term (hourly/daily/weekly)"
               radius={[4, 4, 0, 0]}
             />
           </BarChart>
