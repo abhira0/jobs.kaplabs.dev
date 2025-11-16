@@ -45,6 +45,25 @@ const getSalaryRange = (salary: number): SalaryRange => {
   return '100+';
 };
 
+// Helper: Normalize status to string (handle legacy numeric status codes)
+const normalizeStatus = (status: string | number): string => {
+  // If already a string, return lowercase
+  if (typeof status === 'string') {
+    return status.toLowerCase();
+  }
+
+  // Handle legacy numeric status codes from backend
+  // These should be fixed in the backend, but this provides backwards compatibility
+  const statusMap: Record<number, string> = {
+    1: 'saved',
+    2: 'applied',
+    11: 'screen',
+    23: 'rejected',
+  };
+
+  return statusMap[status] || `unknown_${status}`;
+};
+
 // Helper: Get day of week name
 const getDayOfWeek = (dateStr: string): keyof DayOfWeekStats => {
   const days: (keyof DayOfWeekStats)[] = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -73,7 +92,7 @@ export const applyFilters = (data: SimplifyJob[], filters: AnalyticsFilters): Si
   return data.filter(job => {
     // Date range filter
     if (filters.dateRange !== 'all') {
-      const appliedEvent = job.status_events?.find(e => e.status === 'applied');
+      const appliedEvent = job.status_events?.find(e => normalizeStatus(e.status) === 'applied');
       if (appliedEvent) {
         const appliedDate = new Date(getLocalDateStr(appliedEvent.timestamp) || '');
         const today = new Date();
@@ -112,7 +131,7 @@ export const applyFilters = (data: SimplifyJob[], filters: AnalyticsFilters): Si
 
     // Status filter
     if (filters.statuses && filters.statuses.length > 0) {
-      const hasStatus = job.status_events?.some(e => filters.statuses?.includes(e.status));
+      const hasStatus = job.status_events?.some(e => filters.statuses?.includes(normalizeStatus(e.status)));
       if (!hasStatus) return false;
     }
 
@@ -125,14 +144,14 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
   const today = new Date().toISOString().split('T')[0];
 
   const appliedJobs = data.filter(job =>
-    job.status_events?.some(event => event.status === 'applied')
+    job.status_events?.some(event => normalizeStatus(event.status) === 'applied')
   );
 
   const totalApps = appliedJobs.length;
 
   const todayApps = appliedJobs.filter(job =>
     job.status_events?.some(
-      event => event.status === 'applied' && getLocalDateStr(event.timestamp)?.startsWith(today)
+      event => normalizeStatus(event.status) === 'applied' && getLocalDateStr(event.timestamp)?.startsWith(today)
     )
   ).length;
 
@@ -142,7 +161,7 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
     appliedJobs
       .filter(job =>
         job.status_events?.some(
-          event => event.status === 'applied' && getLocalDateStr(event.timestamp)?.startsWith(today)
+          event => normalizeStatus(event.status) === 'applied' && getLocalDateStr(event.timestamp)?.startsWith(today)
         )
       )
       .map(job => job.company_id)
@@ -155,11 +174,12 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
   const totalResponseTimes: number[] = [];
 
   data.forEach(job => {
-    const appliedEvent = job.status_events?.find(e => e.status === 'applied');
+    const appliedEvent = job.status_events?.find(e => normalizeStatus(e.status) === 'applied');
     const appliedDate = appliedEvent ? getLocalDateStr(appliedEvent.timestamp) : null;
 
     job.status_events?.forEach(event => {
-      if (event.status === 'rejected') {
+      const eventStatus = normalizeStatus(event.status);
+      if (eventStatus === 'rejected') {
         totalRejections++;
         if (getLocalDateStr(event.timestamp)?.startsWith(today)) {
           todayRejections++;
@@ -170,8 +190,8 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
           totalResponseTimes.push(responseTime);
         }
       }
-      if (event.status === 'interviewing') totalInterviews++;
-      if (event.status === 'offer') totalOffers++;
+      if (eventStatus === 'interviewing') totalInterviews++;
+      if (eventStatus === 'offer') totalOffers++;
     });
   });
 
@@ -270,17 +290,18 @@ const processDailyData = (data: SimplifyJob[]): DailyStatsMap => {
       const eventDate = getLocalDateStr(event.timestamp);
       if (!eventDate || !dailyStats[eventDate]) return;
 
-      if (event.status === 'applied') {
+      const eventStatus = normalizeStatus(event.status);
+      if (eventStatus === 'applied') {
         dailyStats[eventDate].totalApplications++;
         dailyStats[eventDate].uniqueCompanies.add(job.company_id);
       }
-      if (event.status === 'rejected') {
+      if (eventStatus === 'rejected') {
         dailyStats[eventDate].rejections++;
       }
-      if (event.status === 'interviewing') {
+      if (eventStatus === 'interviewing') {
         dailyStats[eventDate].interviews = (dailyStats[eventDate].interviews || 0) + 1;
       }
-      if (event.status === 'offer') {
+      if (eventStatus === 'offer') {
         dailyStats[eventDate].offers = (dailyStats[eventDate].offers || 0) + 1;
       }
     });
@@ -365,7 +386,7 @@ const processStatusDistribution = (data: SimplifyJob[]): StatusDistribution => {
     );
 
     const latestEvent = sortedEvents[0];
-    const currentStatus = latestEvent.status.toLowerCase();
+    const currentStatus = normalizeStatus(latestEvent.status);
 
     // If latest status is "applied" with only one event, it's pending (no response yet)
     if (currentStatus === 'applied' && job.status_events.length === 1) {
@@ -373,7 +394,7 @@ const processStatusDistribution = (data: SimplifyJob[]): StatusDistribution => {
     }
     // If latest status is "applied" but there are multiple events, check if there's a non-applied status
     else if (currentStatus === 'applied') {
-      const hasOtherStatus = job.status_events.some(e => e.status.toLowerCase() !== 'applied');
+      const hasOtherStatus = job.status_events.some(e => normalizeStatus(e.status) !== 'applied');
       if (hasOtherStatus) {
         // This shouldn't normally happen (applied shouldn't be latest if other statuses exist)
         // But if it does, count as pending
@@ -428,7 +449,7 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
 
     const stats = companyMap.get(job.company_id)!;
 
-    const hasApplied = job.status_events?.some(e => e.status.toLowerCase() === 'applied');
+    const hasApplied = job.status_events?.some(e => normalizeStatus(e.status) === 'applied');
     if (hasApplied) {
       stats.totalApplications++;
     }
@@ -437,7 +458,7 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
     const sortedEvents = [...job.status_events].sort((a, b) =>
       b.timestamp.localeCompare(a.timestamp)
     );
-    const currentStatus = sortedEvents[0].status.toLowerCase();
+    const currentStatus = normalizeStatus(sortedEvents[0].status);
 
     // Only count CURRENT status, not historical
     if (currentStatus === 'rejected' || currentStatus === 'rejection') {
@@ -451,7 +472,7 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
     }
 
     // Calculate response time (time from applied to current status)
-    const appliedEvent = job.status_events?.find(e => e.status.toLowerCase() === 'applied');
+    const appliedEvent = job.status_events?.find(e => normalizeStatus(e.status) === 'applied');
     const appliedDate = appliedEvent ? getLocalDateStr(appliedEvent.timestamp) : null;
 
     // Only calculate response time if there's a response (current status is not applied/pending)
@@ -498,7 +519,7 @@ const processDayOfWeekStats = (data: SimplifyJob[]): DayOfWeekStats => {
   };
 
   data.forEach(job => {
-    const appliedEvent = job.status_events?.find(e => e.status === 'applied');
+    const appliedEvent = job.status_events?.find(e => normalizeStatus(e.status) === 'applied');
     if (appliedEvent) {
       const dateStr = getLocalDateStr(appliedEvent.timestamp);
       if (dateStr) {
@@ -523,14 +544,14 @@ const processResponseTimeDistribution = (data: SimplifyJob[]): ResponseTimeDistr
   };
 
   data.forEach(job => {
-    const appliedEvent = job.status_events?.find(e => e.status === 'applied');
+    const appliedEvent = job.status_events?.find(e => normalizeStatus(e.status) === 'applied');
     if (!appliedEvent) return;
 
     const appliedDate = getLocalDateStr(appliedEvent.timestamp);
     if (!appliedDate) return;
 
     const responseEvents = job.status_events?.filter(
-      e => e.status !== 'applied' && e.timestamp > appliedEvent.timestamp
+      e => normalizeStatus(e.status) !== 'applied' && e.timestamp > appliedEvent.timestamp
     );
 
     if (!responseEvents || responseEvents.length === 0) {
