@@ -6,6 +6,7 @@ import { useState, useMemo } from 'react';
 import { ProcessedAnalyticsData } from '@/types/analytics';
 import ChartContainer from '../ChartContainer';
 import EmptyState from '../EmptyState';
+import LocationMap from '../LocationMap';
 import {
   BarChart,
   Bar,
@@ -221,6 +222,19 @@ export default function Companies({ data }: CompaniesProps) {
           )}
         </ChartContainer>
       </div>
+
+      {/* Geographic Distribution Map */}
+      <ChartContainer
+        title="Geographic Distribution"
+        description="Where you're applying to jobs"
+        chartId="location-map"
+      >
+        <LocationMap
+          locations={location.locations}
+          remoteCount={location.remoteCount}
+          hybridCount={location.hybridCount}
+        />
+      </ChartContainer>
 
       {/* Success Rate vs Applications Scatter */}
       {scatterData.length > 0 && (

@@ -25,7 +25,7 @@ type PerformanceProps = {
 };
 
 export default function Performance({ data }: PerformanceProps) {
-  const { summary, successRateTrend, monthlyTrend, statusDistribution } = data;
+  const { summary, successRateTrend, monthlyTrend, statusDistribution, applicationFunnel } = data;
 
   // Calculate velocity (apps per week)
   const velocity = useMemo(() => {
@@ -51,39 +51,25 @@ export default function Performance({ data }: PerformanceProps) {
     };
   }, [summary, statusDistribution]);
 
-  // Funnel data - show current status breakdown
-  const funnelData = [
-    {
-      stage: 'Applied',
-      count: summary.totalApps,
-      color: '#3b82f6',
-      percentage: 100,
-    },
-    {
-      stage: 'Pending Response',
-      count: statusDistribution.pending || 0,
-      color: '#6366f1',
-      percentage: summary.totalApps > 0 ? Math.round(((statusDistribution.pending || 0) / summary.totalApps) * 100) : 0,
-    },
-    {
-      stage: 'Interviewing',
-      count: statusDistribution.interviewing || 0,
-      color: '#f59e0b',
-      percentage: summary.totalApps > 0 ? Math.round(((statusDistribution.interviewing || 0) / summary.totalApps) * 100) : 0,
-    },
-    {
-      stage: 'Offers',
-      count: (statusDistribution.offer || 0) + (statusDistribution.accepted || 0),
-      color: '#10b981',
-      percentage: summary.totalApps > 0 ? Math.round((((statusDistribution.offer || 0) + (statusDistribution.accepted || 0)) / summary.totalApps) * 100) : 0,
-    },
-    {
-      stage: 'Rejected',
-      count: statusDistribution.rejected || 0,
-      color: '#ef4444',
-      percentage: summary.totalApps > 0 ? Math.round(((statusDistribution.rejected || 0) / summary.totalApps) * 100) : 0,
-    },
-  ];
+  // Map funnel data to colors for visualization
+  const funnelData = applicationFunnel.map(stage => {
+    const colorMap: Record<string, string> = {
+      'Saved': '#6366f1',
+      'Applied': '#3b82f6',
+      'Screen': '#f59e0b',
+      'Interviewing': '#8b5cf6',
+      'Offer': '#10b981',
+      'Rejected': '#ef4444',
+      'Accepted': '#22c55e',
+    };
+
+    return {
+      stage: stage.name,
+      count: stage.value,
+      color: colorMap[stage.name] || '#6366f1',
+      percentage: Math.round(stage.percentage),
+    };
+  });
 
   if (summary.totalApps === 0) {
     return <EmptyState title="No Performance Data" description="No applications to analyze yet" />;
@@ -213,18 +199,23 @@ export default function Performance({ data }: PerformanceProps) {
         </ChartContainer>
       </div>
 
-      {/* Application Status Breakdown */}
+      {/* Application Funnel - ALL stages applications went through */}
       <ChartContainer
-        title="Application Status Breakdown"
-        description="Current status of all applications"
+        title="Application Funnel"
+        description="All stages your applications have gone through (applications counted in each stage they reached)"
         chartId="funnel-chart"
         exportData={{
-          name: 'Application Status',
+          name: 'Application Funnel',
           data: funnelData,
           headers: ['stage', 'count', 'percentage'],
         }}
       >
         <div className="space-y-4">
+          <div className="text-xs text-muted mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            Flow: Saved → Applied → Screen → Interviewing → Offer/Rejected → Accepted
+            <br/>
+            <span className="font-semibold">Note:</span> Applications are counted in ALL stages they went through.
+          </div>
           {funnelData.map((item, index) => (
             <div key={index} className="space-y-2">
               <div className="flex items-center justify-between text-sm">

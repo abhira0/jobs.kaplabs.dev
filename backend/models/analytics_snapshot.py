@@ -23,6 +23,7 @@ class AnalyticsSnapshot(BaseModel):
     description: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     data: List[Dict[str, Any]]  # The raw SimplifyJob[] data
+    filters: Optional[Dict[str, Any]] = None  # Saved filter state
 
     class Config:
         json_encoders = {ObjectId: str}
@@ -31,6 +32,7 @@ class AnalyticsSnapshot(BaseModel):
 class SnapshotCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    filters: Optional[Dict[str, Any]] = None
 
 class SnapshotResponse(BaseModel):
     id: str
@@ -39,6 +41,7 @@ class SnapshotResponse(BaseModel):
     description: Optional[str]
     created_at: datetime
     data_count: int  # Number of jobs in snapshot
+    filters: Optional[Dict[str, Any]] = None
 
     class Config:
         json_encoders = {ObjectId: str}

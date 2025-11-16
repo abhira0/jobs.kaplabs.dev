@@ -14,6 +14,7 @@ type SnapshotModalProps = {
   onSnapshotCreated: () => void;
   onSnapshotDeleted: () => void;
   onSnapshotView: (snapshotId: string) => void;
+  currentFilters: any;
 };
 
 export default function SnapshotModal({
@@ -23,6 +24,7 @@ export default function SnapshotModal({
   onSnapshotCreated,
   onSnapshotDeleted,
   onSnapshotView,
+  currentFilters,
 }: SnapshotModalProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [newSnapshotName, setNewSnapshotName] = useState('');
@@ -46,6 +48,7 @@ export default function SnapshotModal({
       const snapshotData: SnapshotCreate = {
         name: newSnapshotName.trim(),
         description: newSnapshotDesc.trim() || undefined,
+        filters: currentFilters,
       };
 
       const res = await fetch(buildApiUrl('/analytics/snapshots'), {
@@ -106,8 +109,8 @@ export default function SnapshotModal({
   const canCreateMore = snapshots.length < maxSnapshots;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-default rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 border border-default rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-default">
           <div>
@@ -137,7 +140,7 @@ export default function SnapshotModal({
           )}
 
           {/* Create New Snapshot */}
-          <div className="rounded-lg border border-default bg-black/40 p-4">
+          <div className="rounded-lg border border-default bg-gray-800 p-4">
             <h3 className="text-sm font-semibold mb-3">Create New Snapshot</h3>
             <div className="space-y-3">
               <div>
@@ -151,7 +154,7 @@ export default function SnapshotModal({
                   onChange={(e) => setNewSnapshotName(e.target.value)}
                   placeholder="e.g., End of Month Review"
                   disabled={!canCreateMore || isCreating}
-                  className="w-full px-3 py-2 rounded-md bg-black/40 border border-default text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2 rounded-md bg-gray-950 border border-default text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                   maxLength={50}
                 />
               </div>
@@ -165,7 +168,7 @@ export default function SnapshotModal({
                   onChange={(e) => setNewSnapshotDesc(e.target.value)}
                   placeholder="Add notes about this snapshot..."
                   disabled={!canCreateMore || isCreating}
-                  className="w-full px-3 py-2 rounded-md bg-black/40 border border-default text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 resize-none"
+                  className="w-full px-3 py-2 rounded-md bg-gray-950 border border-default text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 resize-none"
                   rows={2}
                   maxLength={200}
                 />
@@ -193,7 +196,7 @@ export default function SnapshotModal({
                 {snapshots.map((snapshot) => (
                   <div
                     key={snapshot.id}
-                    className="rounded-lg border border-default bg-black/40 p-4 hover:bg-white/5 transition-colors"
+                    className="rounded-lg border border-default bg-gray-800 p-4 hover:bg-gray-750 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">

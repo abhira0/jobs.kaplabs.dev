@@ -90,28 +90,27 @@ function JobsInner() {
             active: item.active ?? true,
         }));
 
-        // If we have tracker IDs, attempt to mark them hidden via ApplicationsContext API
+        // If we have tracker IDs, attempt to mark them hidden via bulk update API
         setJobs(processed);
         if (trackerIds.length > 0) {
-          // Defer to allow ApplicationsProvider to initialize username state
-          setTimeout(() => {
-            trackerIds.forEach((id) => {
-              try {
-                // Hidden/applied are mirrored; persist as hidden
-                (async () => {
-                  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
-                  if (!token) return;
-                  await fetch(buildApiUrl("/applications"), {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ job_id: id, status: "hidden", value: true }),
-                  }).catch(() => {});
-                })();
-              } catch {}
-            });
+          // Use bulk update endpoint to prevent API flooding
+          setTimeout(async () => {
+            try {
+              const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+              if (!token) return;
+              await fetch(buildApiUrl("/applications/bulk"), {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  job_ids: trackerIds,
+                  status: "hidden",
+                  value: true
+                }),
+              }).catch(() => {});
+            } catch {}
           }, 0);
         }
       } catch (e: unknown) {

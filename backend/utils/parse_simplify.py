@@ -154,11 +154,17 @@ class AddCoordinates:
 class StatusEvents:
     """Convert Simplify API status codes to string values.
 
-    Known status codes from Simplify API:
+    VERIFIED Simplify API status codes:
     1 = saved (bookmarked but not applied)
     2 = applied
-    11 = screen/interviewing
+    11 = screen
+    12 = interviewing
+    13 = offer
     23 = rejected
+    24 = accepted
+
+    Application flow: saved → applied → screen → interviewing → offer/rejected
+    If offer received: offer → accepted (or not)
 
     Any unknown status codes are converted to strings for safety.
     """
@@ -174,17 +180,24 @@ class StatusEvents:
                     continue
 
                 # Convert status code to string value
-                if status["status"] == 1:
+                original_status = status["status"]
+
+                if original_status == 1:
                     status["status"] = "saved"
-                elif status["status"] == 2:
+                elif original_status == 2:
                     status["status"] = "applied"
-                elif status["status"] == 11:
+                elif original_status == 11:
                     status["status"] = "screen"
-                elif status["status"] == 23:
+                elif original_status == 12:
+                    status["status"] = "interviewing"
+                elif original_status == 13:
+                    status["status"] = "offer"
+                elif original_status == 23:
                     status["status"] = "rejected"
+                elif original_status == 24:
+                    status["status"] = "accepted"
                 else:
                     # Unknown status code - convert to string to prevent frontend errors
-                    original_status = status["status"]
                     status["status"] = f"unknown_{original_status}"
                     logger.warning(
                         f"Unknown status code {original_status} encountered. "

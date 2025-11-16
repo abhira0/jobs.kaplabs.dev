@@ -69,7 +69,7 @@ function AnalyticsPageInner() {
     if (!displayData || displayData.length === 0) return null;
 
     const filteredData = applyFilters(displayData, filters);
-    return processAnalyticsData(filteredData);
+    return processAnalyticsData(filteredData, filters);
   }, [displayData, filters]);
 
   // Extract unique companies and locations for filters
@@ -172,6 +172,10 @@ function AnalyticsPageInner() {
         const snapshotData: SnapshotWithData = await res.json();
         setViewingSnapshot(snapshotData.data);
         setSnapshotName(snapshotData.name);
+        // Load saved filters if they exist
+        if (snapshotData.filters) {
+          setFilters(snapshotData.filters as AnalyticsFilters);
+        }
         setIsSnapshotModalOpen(false);
       }
     } catch (error) {
@@ -363,6 +367,7 @@ function AnalyticsPageInner() {
         onSnapshotCreated={fetchSnapshots}
         onSnapshotDeleted={fetchSnapshots}
         onSnapshotView={handleViewSnapshot}
+        currentFilters={filters}
       />
     </section>
   );

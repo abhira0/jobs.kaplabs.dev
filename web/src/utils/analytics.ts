@@ -52,13 +52,15 @@ const normalizeStatus = (status: string | number): string => {
     return status.toLowerCase();
   }
 
-  // Handle legacy numeric status codes from backend
-  // These should be fixed in the backend, but this provides backwards compatibility
+  // VERIFIED Simplify API status codes
   const statusMap: Record<number, string> = {
     1: 'saved',
     2: 'applied',
     11: 'screen',
+    12: 'interviewing',
+    13: 'offer',
     23: 'rejected',
+    24: 'accepted',
   };
 
   return statusMap[status] || `unknown_${status}`;
@@ -190,8 +192,14 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
           totalResponseTimes.push(responseTime);
         }
       }
-      if (eventStatus === 'interviewing') totalInterviews++;
-      if (eventStatus === 'offer') totalOffers++;
+      // Count interview and screening stages
+      if (eventStatus === 'screen' || eventStatus === 'interviewing') {
+        totalInterviews++;
+      }
+      // Count offer stages
+      if (eventStatus === 'offer' || eventStatus === 'accepted') {
+        totalOffers++;
+      }
     });
   });
 
@@ -251,28 +259,42 @@ const processSalaryData = (data: SimplifyJob[]): SalaryData => {
 };
 
 // Process Daily Data
-const processDailyData = (data: SimplifyJob[]): DailyStatsMap => {
+const processDailyData = (data: SimplifyJob[], filters?: AnalyticsFilters): DailyStatsMap => {
   const dailyStats: DailyStatsMap = {};
 
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  // Determine the end date (latest date to show)
+  let endDate = new Date();
+  if (filters?.dateRange === 'custom' && filters.customEndDate) {
+    endDate = new Date(filters.customEndDate);
+  }
+  endDate.setUTCHours(0, 0, 0, 0);
 
-  let earliestDate = new Date();
-  earliestDate.setUTCHours(0, 0, 0, 0);
+  // Determine the start date (earliest date to show)
+  let startDate = new Date();
+  if (filters?.dateRange === 'custom' && filters.customStartDate) {
+    startDate = new Date(filters.customStartDate);
+  } else if (filters?.dateRange && filters.dateRange !== 'all') {
+    const daysMap = { '7d': 7, '14d': 14, '30d': 30, '60d': 60, '90d': 90 };
+    const days = daysMap[filters.dateRange as keyof typeof daysMap] || 0;
+    startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - days);
+  } else {
+    // Find earliest date in data
+    startDate = new Date();
+    data.forEach(job => {
+      if (!job.tracked_date) return;
+      const jobDate = new Date(job.tracked_date);
+      jobDate.setUTCHours(0, 0, 0, 0);
+      if (jobDate < startDate) {
+        startDate = jobDate;
+      }
+    });
+  }
+  startDate.setUTCHours(0, 0, 0, 0);
 
-  // Find earliest date
-  data.forEach(job => {
-    if (!job.tracked_date) return;
-    const jobDate = new Date(job.tracked_date);
-    jobDate.setUTCHours(0, 0, 0, 0);
-    if (jobDate < earliestDate) {
-      earliestDate = jobDate;
-    }
-  });
-
-  // Initialize all dates
-  const currentDate = new Date(today);
-  while (currentDate >= earliestDate) {
+  // Initialize all dates from start to end
+  const currentDate = new Date(endDate);
+  while (currentDate >= startDate) {
     const dateStr = currentDate.toISOString().split('T')[0];
     dailyStats[dateStr] = {
       totalApplications: 0,
@@ -298,10 +320,12 @@ const processDailyData = (data: SimplifyJob[]): DailyStatsMap => {
       if (eventStatus === 'rejected') {
         dailyStats[eventDate].rejections++;
       }
-      if (eventStatus === 'interviewing') {
+      // Count interview and screening stages
+      if (eventStatus === 'screen' || eventStatus === 'interviewing') {
         dailyStats[eventDate].interviews = (dailyStats[eventDate].interviews || 0) + 1;
       }
-      if (eventStatus === 'offer') {
+      // Count offer stages
+      if (eventStatus === 'offer' || eventStatus === 'accepted') {
         dailyStats[eventDate].offers = (dailyStats[eventDate].offers || 0) + 1;
       }
     });
@@ -404,20 +428,22 @@ const processStatusDistribution = (data: SimplifyJob[]): StatusDistribution => {
       }
     }
     // Map status to distribution
-    else if (currentStatus === 'rejected' || currentStatus === 'rejection') {
+    else if (currentStatus === 'rejected') {
       distribution.rejected++;
     }
-    else if (currentStatus === 'interviewing' || currentStatus === 'interview' || currentStatus === 'phone screen' || currentStatus === 'onsite') {
+    // Screening and interviewing stages
+    else if (currentStatus === 'screen') {
+      distribution.interviewing++; // Count screen as interviewing for pie chart
+    }
+    else if (currentStatus === 'interviewing') {
       distribution.interviewing++;
     }
-    else if (currentStatus === 'offer' || currentStatus === 'offered') {
+    // Offers
+    else if (currentStatus === 'offer') {
       distribution.offer++;
     }
     else if (currentStatus === 'accepted') {
       distribution.accepted++;
-    }
-    else if (currentStatus === 'withdrawn' || currentStatus === 'withdraw') {
-      distribution.withdrawn++;
     }
     else {
       // Unknown status, count as pending
@@ -433,6 +459,10 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
   const companyMap = new Map<string, CompanyStats>();
 
   data.forEach(job => {
+    // Skip jobs without company_id or status_events
+    // NOTE: If Top Companies chart is empty, check that:
+    // 1. Jobs have company_id field populated
+    // 2. Jobs have status_events with at least an 'applied' status
     if (!job.company_id || !job.status_events || job.status_events.length === 0) return;
 
     if (!companyMap.has(job.company_id)) {
@@ -461,13 +491,15 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
     const currentStatus = normalizeStatus(sortedEvents[0].status);
 
     // Only count CURRENT status, not historical
-    if (currentStatus === 'rejected' || currentStatus === 'rejection') {
+    if (currentStatus === 'rejected') {
       stats.rejections++;
     }
-    if (currentStatus === 'interviewing' || currentStatus === 'interview' || currentStatus === 'phone screen' || currentStatus === 'onsite') {
+    // Interview stages
+    if (currentStatus === 'screen' || currentStatus === 'interviewing') {
       stats.interviews++;
     }
-    if (currentStatus === 'offer' || currentStatus === 'offered' || currentStatus === 'accepted') {
+    // Offer stages
+    if (currentStatus === 'offer' || currentStatus === 'accepted') {
       stats.offers++;
     }
 
@@ -628,9 +660,52 @@ const processSuccessRateTrend = (dailyStats: DailyStatsMap): TrendDataPoint[] =>
     .sort((a, b) => a.date.localeCompare(b.date));
 };
 
+// Process Application Funnel
+// Flow: saved → applied → screen → interviewing → offer/rejected → accepted
+const processApplicationFunnel = (data: SimplifyJob[]): FunnelStage[] => {
+  const stageCounts = {
+    saved: 0,
+    applied: 0,
+    screen: 0,
+    interviewing: 0,
+    offer: 0,
+    rejected: 0,
+    accepted: 0,
+  };
+
+  // Count each job through ALL stages it went through
+  data.forEach(job => {
+    const statuses = new Set<string>();
+    job.status_events?.forEach(event => {
+      statuses.add(normalizeStatus(event.status));
+    });
+
+    // Count each stage the application went through
+    if (statuses.has('saved')) stageCounts.saved++;
+    if (statuses.has('applied')) stageCounts.applied++;
+    if (statuses.has('screen')) stageCounts.screen++;
+    if (statuses.has('interviewing')) stageCounts.interviewing++;
+    if (statuses.has('offer')) stageCounts.offer++;
+    if (statuses.has('rejected')) stageCounts.rejected++;
+    if (statuses.has('accepted')) stageCounts.accepted++;
+  });
+
+  const total = stageCounts.saved || 1; // Prevent division by zero
+
+  return [
+    { name: 'Saved', value: stageCounts.saved, percentage: (stageCounts.saved / total) * 100 },
+    { name: 'Applied', value: stageCounts.applied, percentage: (stageCounts.applied / total) * 100 },
+    { name: 'Screen', value: stageCounts.screen, percentage: (stageCounts.screen / total) * 100 },
+    { name: 'Interviewing', value: stageCounts.interviewing, percentage: (stageCounts.interviewing / total) * 100 },
+    { name: 'Offer', value: stageCounts.offer, percentage: (stageCounts.offer / total) * 100 },
+    { name: 'Rejected', value: stageCounts.rejected, percentage: (stageCounts.rejected / total) * 100 },
+    { name: 'Accepted', value: stageCounts.accepted, percentage: (stageCounts.accepted / total) * 100 },
+  ];
+};
+
 // Main processing function
-export const processAnalyticsData = (data: SimplifyJob[]): ProcessedAnalyticsData => {
-  const daily = processDailyData(data);
+export const processAnalyticsData = (data: SimplifyJob[], filters?: AnalyticsFilters): ProcessedAnalyticsData => {
+  const daily = processDailyData(data, filters);
 
   return {
     summary: processSummaryStats(data),
@@ -644,5 +719,6 @@ export const processAnalyticsData = (data: SimplifyJob[]): ProcessedAnalyticsDat
     weeklyTrend: processWeeklyTrend(daily),
     monthlyTrend: processMonthlyTrend(daily),
     successRateTrend: processSuccessRateTrend(daily),
+    applicationFunnel: processApplicationFunnel(data),
   };
 };

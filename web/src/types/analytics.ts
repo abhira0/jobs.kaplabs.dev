@@ -116,6 +116,13 @@ export type TrendDataPoint = {
   label?: string;
 };
 
+// Application Funnel Data
+export type FunnelStage = {
+  name: string;
+  value: number;
+  percentage: number;
+};
+
 // Complete Processed Analytics Data
 export type ProcessedAnalyticsData = {
   summary: SummaryStats;
@@ -129,6 +136,7 @@ export type ProcessedAnalyticsData = {
   weeklyTrend: TrendDataPoint[];
   monthlyTrend: TrendDataPoint[];
   successRateTrend: TrendDataPoint[];
+  applicationFunnel: FunnelStage[];
 };
 
 // Filter Options
@@ -162,6 +170,7 @@ export type Snapshot = {
   description?: string;
   created_at: string;
   data_count: number;
+  filters?: AnalyticsFilters;
 };
 
 export type SnapshotWithData = {
@@ -171,9 +180,11 @@ export type SnapshotWithData = {
   description?: string;
   created_at: string;
   data: SimplifyJob[];
+  filters?: AnalyticsFilters;
 };
 
 export type SnapshotCreate = {
   name: string;
   description?: string;
+  filters?: AnalyticsFilters;
 };
