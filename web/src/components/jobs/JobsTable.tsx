@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useApplications } from "@/context/ApplicationsContext";
 import { useRouter } from "next/navigation";
 import type { Job } from "@/types/job";
@@ -24,6 +24,7 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+  const isShiftClickRef = useRef(false);
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalCount);
 
@@ -206,12 +207,30 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
     router.push(`/open-links?urls=${payload}`);
   };
 
+  const handleRowCheckboxChange = (
+    jobId: string,
+    rowIndex: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    // Skip if this was a shift-click (handled in onClick)
+    if (isShiftClickRef.current) {
+      isShiftClickRef.current = false;
+      return;
+    }
+    // Regular toggle
+    toggleSelect(jobId);
+    setLastSelectedIndex(rowIndex);
+  };
+
   const handleRowCheckboxClick = (
     jobId: string,
     rowIndex: number,
     e: React.MouseEvent<HTMLInputElement>
   ) => {
+    // Handle shift-click for range selection
     if (e.shiftKey && lastSelectedIndex !== null) {
+      isShiftClickRef.current = true;
+      e.preventDefault();
       const start = Math.min(lastSelectedIndex, rowIndex);
       const end = Math.max(lastSelectedIndex, rowIndex);
       const idsInRange = jobs.slice(start, end + 1).map((j) => j.id);
@@ -221,11 +240,7 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
         return next;
       });
       setLastSelectedIndex(rowIndex);
-      return;
     }
-    // regular toggle
-    toggleSelect(jobId);
-    setLastSelectedIndex(rowIndex);
   };
 
   return (
@@ -374,8 +389,8 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
                   <input
                     type="checkbox"
                     checked={isSelected(job.id)}
+                    onChange={(e) => handleRowCheckboxChange(job.id, index, e)}
                     onClick={(e) => handleRowCheckboxClick(job.id, index, e)}
-                    readOnly
                     className="h-4 w-4 cursor-pointer align-middle"
                     aria-label="Select row"
                   />
@@ -471,8 +486,8 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
                 <input
                   type="checkbox"
                   checked={isSelected(job.id)}
+                  onChange={(e) => handleRowCheckboxChange(job.id, index, e)}
                   onClick={(e) => handleRowCheckboxClick(job.id, index, e)}
-                  readOnly
                   className="h-4 w-4 cursor-pointer align-middle"
                   aria-label="Select job"
                 />
