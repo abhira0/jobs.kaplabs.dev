@@ -66,6 +66,14 @@ class JSONFile:
 LOCATION_CACHE = JSONFile("utils/locations.json")
 
 
+def save_json_atomic(file_path: str, data: Any) -> None:
+    """Save JSON data atomically without loading existing file"""
+    temp_path = f"{file_path}.tmp"
+    with open(temp_path, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(temp_path, file_path)
+
+
 # class FilterByDate:
 #     def __init__(
 #         self, input, cutoff_date: datetime.datetime = datetime.datetime(2024, 1, 1)
@@ -214,7 +222,7 @@ def main(from_path: str, to_path: str):
     ProcessSalary(data)
     # RemoveUnusedKeys(data)
 
-    JSONFile(to_path, auto_save=False).save(data.data)
+    save_json_atomic(to_path, data.data)
 
 def main_without_coordinates(from_path: str, to_path: str):
     """Process data without coordinates - fast initial processing"""
@@ -228,7 +236,7 @@ def main_without_coordinates(from_path: str, to_path: str):
     ProcessSalary(data)
     # RemoveUnusedKeys(data)
 
-    JSONFile(to_path, auto_save=False).save(data.data)
+    save_json_atomic(to_path, data.data)
 
 def add_coordinates_to_existing(parsed_path: str):
     """Add coordinates to already parsed data - can be run asynchronously"""
@@ -239,7 +247,7 @@ def add_coordinates_to_existing(parsed_path: str):
         AddCoordinates(data)
 
         # Save the updated data
-        JSONFile(parsed_path, auto_save=False).save(data.data)
+        save_json_atomic(parsed_path, data.data)
         logger.info(f"Finished adding coordinates to {len(data.data)} items")
     except Exception as e:
         logger.error(f"Error adding coordinates: {str(e)}", exc_info=True)
