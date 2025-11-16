@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from ..dependencies import get_current_user
 from backend.utils.db import get_database
@@ -218,12 +218,47 @@ async def get_default_filters(
 @router.post("/filters", response_model=FiltersResponse)
 async def save_default_filters(
     filters_update: FiltersUpdate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    snapshot_id: Optional[str] = None
 ):
-    """Save user's default filter preferences"""
+    """Save user's default filter preferences or snapshot-specific filters"""
     db = get_database()
 
     try:
+        # If snapshot_id is provided, save filters to that snapshot
+        if snapshot_id:
+            if not ObjectId.is_valid(snapshot_id):
+                raise HTTPException(status_code=400, detail="Invalid snapshot ID")
+
+            # Update snapshot filters
+            result = await db.analytics_snapshots.update_one(
+                {
+                    "_id": ObjectId(snapshot_id),
+                    "username": current_user["username"]
+                },
+                {
+                    "$set": {
+                        "filters": {
+                            "date_range": filters_update.date_range,
+                            "custom_start_date": filters_update.custom_start_date,
+                            "custom_end_date": filters_update.custom_end_date,
+                        },
+                        "filters_updated_at": datetime.utcnow()
+                    }
+                }
+            )
+
+            if result.matched_count == 0:
+                raise HTTPException(status_code=404, detail="Snapshot not found")
+
+            return FiltersResponse(
+                date_range=filters_update.date_range,
+                custom_start_date=filters_update.custom_start_date,
+                custom_end_date=filters_update.custom_end_date,
+                updated_at=datetime.utcnow()
+            )
+
+        # Otherwise, save as default filters
         filter_data = {
             "username": current_user["username"],
             "date_range": filters_update.date_range,

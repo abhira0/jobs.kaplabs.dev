@@ -3,10 +3,10 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ProcessedAnalyticsData } from '@/types/analytics';
+import { ProcessedAnalyticsData, SimplifyJob } from '@/types/analytics';
 import ChartContainer from '../ChartContainer';
 import EmptyState from '../EmptyState';
-import LocationMap from '../LocationMap';
+import InteractiveLocationMap from '../InteractiveLocationMap';
 import {
   BarChart,
   Bar,
@@ -20,9 +20,10 @@ import {
 
 type CompaniesProps = {
   data: ProcessedAnalyticsData;
+  rawData?: SimplifyJob[];
 };
 
-export default function Companies({ data }: CompaniesProps) {
+export default function Companies({ data, rawData = [] }: CompaniesProps) {
   const { topCompanies, location } = data;
   const [showCount, setShowCount] = useState<10 | 20>(10);
 
@@ -215,10 +216,11 @@ export default function Companies({ data }: CompaniesProps) {
         description="Where you're applying to jobs"
         chartId="location-map"
       >
-        <LocationMap
+        <InteractiveLocationMap
           locations={location.locations}
           remoteCount={location.remoteCount}
           hybridCount={location.hybridCount}
+          jobsData={rawData}
         />
       </ChartContainer>
 

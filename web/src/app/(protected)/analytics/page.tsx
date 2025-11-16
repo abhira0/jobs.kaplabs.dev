@@ -48,6 +48,7 @@ function AnalyticsPageInner() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [viewingSnapshot, setViewingSnapshot] = useState<SimplifyJob[] | null>(null);
   const [snapshotName, setSnapshotName] = useState<string | null>(null);
+  const [currentSnapshotId, setCurrentSnapshotId] = useState<string | null>(null);
 
   // Fetch data with SWR - auto-refresh every 5 minutes
   const {
@@ -199,6 +200,7 @@ function AnalyticsPageInner() {
         const snapshotData: SnapshotWithData = await res.json();
         setViewingSnapshot(snapshotData.data);
         setSnapshotName(snapshotData.name);
+        setCurrentSnapshotId(snapshotId);
         // Load saved filters if they exist
         if (snapshotData.filters) {
           setFilters(snapshotData.filters as AnalyticsFilters);
@@ -214,6 +216,9 @@ function AnalyticsPageInner() {
   const handleExitSnapshotView = () => {
     setViewingSnapshot(null);
     setSnapshotName(null);
+    setCurrentSnapshotId(null);
+    // Reload default filters
+    fetchSavedFilters();
   };
 
   // Tabs configuration
@@ -351,6 +356,7 @@ function AnalyticsPageInner() {
         onFiltersChange={setFilters}
         companies={companies}
         locations={locations}
+        snapshotId={currentSnapshotId}
       />
 
       {/* Tab Navigation */}
@@ -382,7 +388,7 @@ function AnalyticsPageInner() {
         {activeTab === 'overview' && <Overview data={processedData} />}
         {activeTab === 'applications' && <Applications data={processedData} />}
         {activeTab === 'insights' && <Insights data={processedData} />}
-        {activeTab === 'companies' && <Companies data={processedData} />}
+        {activeTab === 'companies' && <Companies data={processedData} rawData={displayData || []} />}
         {activeTab === 'compensation' && <Compensation data={processedData} />}
       </div>
 
