@@ -13,9 +13,6 @@ import {
   Area,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -29,28 +26,20 @@ type OverviewProps = {
 };
 
 export default function Overview({ data }: OverviewProps) {
-  const { summary, weeklyTrend, statusDistribution, dayOfWeek, applicationFunnel } = data;
+  const { summary, weeklyTrend, dayOfWeek, applicationFunnel } = data;
 
   // Prepare data for charts
-  const statusData = Object.entries(statusDistribution)
-    .filter(([, value]) => value > 0)
-    .map(([status, value]) => ({
-      name: status.charAt(0).toUpperCase() + status.slice(1),
-      value,
-    }));
-
   const dayOfWeekData = Object.entries(dayOfWeek).map(([day, value]) => ({
     day,
     applications: value,
   }));
-
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 
   // Prepare Sankey diagram data
   const sankeyData = useMemo(() => {
     const colorMap: Record<string, string> = {
       'Saved': '#6366f1',
       'Applied': '#3b82f6',
+      'Ghosted': '#64748b',
       'Screen': '#f59e0b',
       'Interviewing': '#8b5cf6',
       'Offer': '#10b981',
@@ -64,21 +53,73 @@ export default function Overview({ data }: OverviewProps) {
       color: colorMap[stage.name] || '#6366f1',
     }));
 
-    // Create links between sequential stages
+    // Create links for the flow
     const links = [];
-    for (let i = 0; i < applicationFunnel.length - 1; i++) {
-      const current = applicationFunnel[i];
-      const next = applicationFunnel[i + 1];
 
-      // Only create link if there's flow (next stage has values)
-      if (next.value > 0) {
-        links.push({
-          source: current.name,
-          target: next.name,
-          value: next.value,
-          color: colorMap[next.name] || '#6366f1',
-        });
-      }
+    // Applied -> Ghosted (those with no response)
+    const ghostedStage = applicationFunnel.find(s => s.name === 'Ghosted');
+    if (ghostedStage && ghostedStage.value > 0) {
+      links.push({
+        source: 'Applied',
+        target: 'Ghosted',
+        value: ghostedStage.value,
+        color: colorMap['Ghosted'] || '#64748b',
+      });
+    }
+
+    // Applied -> Screen
+    const screenStage = applicationFunnel.find(s => s.name === 'Screen');
+    if (screenStage && screenStage.value > 0) {
+      links.push({
+        source: 'Applied',
+        target: 'Screen',
+        value: screenStage.value,
+        color: colorMap['Screen'] || '#f59e0b',
+      });
+    }
+
+    // Screen -> Interviewing
+    const interviewingStage = applicationFunnel.find(s => s.name === 'Interviewing');
+    if (interviewingStage && interviewingStage.value > 0) {
+      links.push({
+        source: 'Screen',
+        target: 'Interviewing',
+        value: interviewingStage.value,
+        color: colorMap['Interviewing'] || '#8b5cf6',
+      });
+    }
+
+    // Interviewing -> Offer
+    const offerStage = applicationFunnel.find(s => s.name === 'Offer');
+    if (offerStage && offerStage.value > 0) {
+      links.push({
+        source: 'Interviewing',
+        target: 'Offer',
+        value: offerStage.value,
+        color: colorMap['Offer'] || '#10b981',
+      });
+    }
+
+    // Rejected can come from Applied, Screen, or Interviewing
+    const rejectedStage = applicationFunnel.find(s => s.name === 'Rejected');
+    if (rejectedStage && rejectedStage.value > 0) {
+      links.push({
+        source: 'Applied',
+        target: 'Rejected',
+        value: rejectedStage.value,
+        color: colorMap['Rejected'] || '#ef4444',
+      });
+    }
+
+    // Offer -> Accepted
+    const acceptedStage = applicationFunnel.find(s => s.name === 'Accepted');
+    if (acceptedStage && acceptedStage.value > 0) {
+      links.push({
+        source: 'Offer',
+        target: 'Accepted',
+        value: acceptedStage.value,
+        color: colorMap['Accepted'] || '#22c55e',
+      });
     }
 
     return { nodes, links };
@@ -185,113 +226,39 @@ export default function Overview({ data }: OverviewProps) {
         <SankeyDiagram nodes={sankeyData.nodes} links={sankeyData.links} />
       </ChartContainer>
 
-      {/* Status Distribution and Day of Week */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Status Distribution */}
-        <ChartContainer
-          title="Application Status"
-          description="Current status of all applications"
-          chartId="status-distribution-chart"
-          exportData={{
-            name: 'Status Distribution',
-            data: statusData,
-            headers: ['name', 'value'],
-          }}
-        >
-          {statusData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={statusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={true}
-                  label={({ name, percent, x, y, midAngle, innerRadius, outerRadius }) => {
-                    // Only show labels for segments > 5%
-                    if (percent < 0.05) return null;
-
-                    const RADIAN = Math.PI / 180;
-                    const radius = outerRadius + 25;
-                    const labelX = x + radius * Math.cos(-midAngle * RADIAN);
-                    const labelY = y + radius * Math.sin(-midAngle * RADIAN);
-
-                    return (
-                      <text
-                        x={labelX}
-                        y={labelY}
-                        fill="white"
-                        textAnchor={labelX > x ? 'start' : 'end'}
-                        dominantBaseline="central"
-                        style={{ fontSize: '12px', fontWeight: 500 }}
-                      >
-                        {`${name} ${(percent * 100).toFixed(0)}%`}
-                      </text>
-                    );
-                  }}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {statusData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f1117',
-                    border: '1px solid #21262d',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    color: '#ffffff',
-                  }}
-                  itemStyle={{
-                    color: '#ffffff',
-                  }}
-                  labelStyle={{
-                    color: '#ffffff',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState title="No Status Data" description="No application statuses recorded" />
-          )}
-        </ChartContainer>
-
-        {/* Day of Week Distribution */}
-        <ChartContainer
-          title="Applications by Day"
-          description="Which days you apply most"
-          chartId="day-of-week-chart"
-          exportData={{
-            name: 'Day of Week',
-            data: dayOfWeekData,
-            headers: ['day', 'applications'],
-          }}
-        >
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={dayOfWeekData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-              <XAxis
-                dataKey="day"
-                stroke="#8b949e"
-                style={{ fontSize: '12px' }}
-                tickFormatter={(value) => value.slice(0, 3)}
-              />
-              <YAxis stroke="#8b949e" style={{ fontSize: '12px' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0f1117',
-                  border: '1px solid #21262d',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                }}
-              />
-              <Bar dataKey="applications" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </div>
+      {/* Day of Week Distribution */}
+      <ChartContainer
+        title="Applications by Day"
+        description="Which days you apply most"
+        chartId="day-of-week-chart"
+        exportData={{
+          name: 'Day of Week',
+          data: dayOfWeekData,
+          headers: ['day', 'applications'],
+        }}
+      >
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={dayOfWeekData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+            <XAxis
+              dataKey="day"
+              stroke="#8b949e"
+              style={{ fontSize: '12px' }}
+              tickFormatter={(value) => value.slice(0, 3)}
+            />
+            <YAxis stroke="#8b949e" style={{ fontSize: '12px' }} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#0f1117',
+                border: '1px solid #21262d',
+                borderRadius: '8px',
+                fontSize: '12px',
+              }}
+            />
+            <Bar dataKey="applications" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartContainer>
     </div>
   );
 }
