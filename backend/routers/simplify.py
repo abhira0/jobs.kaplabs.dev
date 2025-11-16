@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, BackgroundTasks
 from typing import Optional
 import httpx
 import json
@@ -10,6 +10,9 @@ from backend.utils.db import get_database
 
 import os
 from ..utils import parse_simplify
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -76,6 +79,7 @@ async def get_tracker(
 
 @router.post("/refresh")
 async def post_tracker_local(
+    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
     # try:
@@ -87,21 +91,33 @@ async def post_tracker_local(
                 status_code=404,
                 detail="Simplify cookie not found"
             )
-            
+
         # Fetch all results from Simplify
         results = await fetch_all_results(user["simplify_cookie"])
-        
+
         # Create directory if it doesn't exist
         os.makedirs(f"cache/{current_user['username']}", exist_ok=True)
-        
+
         # Save to local file
         with open(f"cache/{current_user['username']}/raw.json", 'w') as f:
             json.dump(results, f)
-        
-        parse_simplify.main(f"cache/{current_user['username']}/raw.json", f"cache/{current_user['username']}/parsed.json")
-        
+
+        # Process data WITHOUT coordinates first (fast)
+        raw_path = f"cache/{current_user['username']}/raw.json"
+        parsed_path = f"cache/{current_user['username']}/parsed.json"
+
+        parse_simplify.main_without_coordinates(raw_path, parsed_path)
+
+        # Add coordinate fetching as a background task (slow)
+        background_tasks.add_task(
+            parse_simplify.add_coordinates_to_existing,
+            parsed_path
+        )
+
+        logger.info(f"Started background task to add coordinates for {current_user['username']}")
+
         return {
-            "message": "Tracker data fetched and saved locally",
+            "message": "Tracker data fetched and saved locally. Coordinates are being added in the background.",
             "items_count": len(results)
         }
     # except Exception as e:

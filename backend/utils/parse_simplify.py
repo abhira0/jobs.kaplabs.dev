@@ -46,8 +46,11 @@ class JSONFile:
     def save(self, data: Any = []) -> None:
         if data:
             self.data = data
-        with open(self.file_path, "w") as f:
-            json.dump(data or self.data, f)
+        # Atomic write: write to temp file first, then rename
+        temp_path = f"{self.file_path}.tmp"
+        with open(temp_path, "w") as f:
+            json.dump(data or self.data, f, indent=2)
+        os.replace(temp_path, self.file_path)
         return self
 
     def start_auto_save(self):
@@ -203,11 +206,40 @@ class RemoveUnusedKeys:
         self.input.data = new_data
 
 def main(from_path: str, to_path: str):
+    """Main function that processes all data including coordinates (synchronous)"""
     data = JSONFile(from_path, auto_save=False)
-    
+
     AddCoordinates(data)
     StatusEvents(data)
     ProcessSalary(data)
     # RemoveUnusedKeys(data)
-    
-    JSONFile(to_path).save(data.data)
+
+    JSONFile(to_path, auto_save=False).save(data.data)
+
+def main_without_coordinates(from_path: str, to_path: str):
+    """Process data without coordinates - fast initial processing"""
+    data = JSONFile(from_path, auto_save=False)
+
+    # Initialize empty coordinates for all items
+    for item in data.data:
+        item["coordinates"] = []
+
+    StatusEvents(data)
+    ProcessSalary(data)
+    # RemoveUnusedKeys(data)
+
+    JSONFile(to_path, auto_save=False).save(data.data)
+
+def add_coordinates_to_existing(parsed_path: str):
+    """Add coordinates to already parsed data - can be run asynchronously"""
+    try:
+        logger.info(f"Starting coordinate fetching for {parsed_path}")
+        data = JSONFile(parsed_path, auto_save=False)
+
+        AddCoordinates(data)
+
+        # Save the updated data
+        JSONFile(parsed_path, auto_save=False).save(data.data)
+        logger.info(f"Finished adding coordinates to {len(data.data)} items")
+    except Exception as e:
+        logger.error(f"Error adding coordinates: {str(e)}", exc_info=True)
