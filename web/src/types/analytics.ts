@@ -116,6 +116,13 @@ export type TrendDataPoint = {
   label?: string;
 };
 
+// Application Funnel Data
+export type FunnelStage = {
+  name: string;
+  value: number;
+  percentage: number;
+};
+
 // Complete Processed Analytics Data
 export type ProcessedAnalyticsData = {
   summary: SummaryStats;
@@ -129,6 +136,7 @@ export type ProcessedAnalyticsData = {
   weeklyTrend: TrendDataPoint[];
   monthlyTrend: TrendDataPoint[];
   successRateTrend: TrendDataPoint[];
+  applicationFunnel: FunnelStage[];
 };
 
 // Filter Options

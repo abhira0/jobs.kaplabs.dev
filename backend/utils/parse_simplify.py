@@ -154,19 +154,17 @@ class AddCoordinates:
 class StatusEvents:
     """Convert Simplify API status codes to string values.
 
-    Known status codes from Simplify API:
+    VERIFIED Simplify API status codes:
     1 = saved (bookmarked but not applied)
     2 = applied
-    3 = phone screen
-    4 = technical screen
-    5 = onsite interview
-    6 = offer received
-    7 = offer accepted
-    8 = offer declined
-    9 = withdrawn
-    11 = screening (generic)
+    11 = screen
     12 = interviewing
+    13 = offer
     23 = rejected
+    24 = accepted
+
+    Application flow: saved → applied → screen → interviewing → offer/rejected
+    If offer received: offer → accepted (or not)
 
     Any unknown status codes are converted to strings for safety.
     """
@@ -188,26 +186,16 @@ class StatusEvents:
                     status["status"] = "saved"
                 elif original_status == 2:
                     status["status"] = "applied"
-                elif original_status == 3:
-                    status["status"] = "phone screen"
-                elif original_status == 4:
-                    status["status"] = "technical screen"
-                elif original_status == 5:
-                    status["status"] = "onsite"
-                elif original_status == 6:
-                    status["status"] = "offer"
-                elif original_status == 7:
-                    status["status"] = "accepted"
-                elif original_status == 8:
-                    status["status"] = "declined"
-                elif original_status == 9:
-                    status["status"] = "withdrawn"
                 elif original_status == 11:
                     status["status"] = "screen"
                 elif original_status == 12:
                     status["status"] = "interviewing"
+                elif original_status == 13:
+                    status["status"] = "offer"
                 elif original_status == 23:
                     status["status"] = "rejected"
+                elif original_status == 24:
+                    status["status"] = "accepted"
                 else:
                     # Unknown status code - convert to string to prevent frontend errors
                     status["status"] = f"unknown_{original_status}"

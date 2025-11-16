@@ -27,7 +27,6 @@ type ApplicationsProps = {
 
 export default function Applications({ data }: ApplicationsProps) {
   const { daily } = data;
-  const [timeRange, setTimeRange] = useState<'7' | '14' | '30' | 'all'>('30');
 
   // Convert daily stats to array and sort by date
   const dailyDataArray = useMemo(() => {
@@ -40,19 +39,11 @@ export default function Applications({ data }: ApplicationsProps) {
       offers: stats.offers || 0,
     }));
 
-    // Sort by date
+    // Sort by date - no filtering, global filter handles this
     entries.sort((a, b) => a.date.localeCompare(b.date));
 
-    // Apply time range filter
-    if (timeRange !== 'all') {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - parseInt(timeRange));
-      const cutoffStr = cutoffDate.toISOString().split('T')[0];
-      return entries.filter(e => e.date >= cutoffStr);
-    }
-
     return entries;
-  }, [daily, timeRange]);
+  }, [daily]);
 
   // Format data for charts
   const chartData = dailyDataArray.map(item => ({
@@ -84,22 +75,6 @@ export default function Applications({ data }: ApplicationsProps) {
 
   return (
     <div className="space-y-6">
-      {/* Time Range Selector */}
-      <div className="flex justify-end gap-2">
-        {(['7', '14', '30', 'all'] as const).map(range => (
-          <button
-            key={range}
-            onClick={() => setTimeRange(range)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              timeRange === range
-                ? 'bg-white/15 text-white'
-                : 'bg-white/5 text-muted hover:bg-white/10'
-            }`}
-          >
-            {range === 'all' ? 'All Time' : `${range} Days`}
-          </button>
-        ))}
-      </div>
 
       {/* Daily Applications Trend */}
       <ChartContainer

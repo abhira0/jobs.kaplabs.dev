@@ -52,21 +52,15 @@ const normalizeStatus = (status: string | number): string => {
     return status.toLowerCase();
   }
 
-  // Handle legacy numeric status codes from backend
-  // These should be fixed in the backend, but this provides backwards compatibility
+  // VERIFIED Simplify API status codes
   const statusMap: Record<number, string> = {
     1: 'saved',
     2: 'applied',
-    3: 'phone screen',
-    4: 'technical screen',
-    5: 'onsite',
-    6: 'offer',
-    7: 'accepted',
-    8: 'declined',
-    9: 'withdrawn',
     11: 'screen',
     12: 'interviewing',
+    13: 'offer',
     23: 'rejected',
+    24: 'accepted',
   };
 
   return statusMap[status] || `unknown_${status}`;
@@ -198,14 +192,12 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
           totalResponseTimes.push(responseTime);
         }
       }
-      // Count all interview-related statuses
-      if (eventStatus === 'interviewing' || eventStatus === 'phone screen' ||
-          eventStatus === 'technical screen' || eventStatus === 'onsite' ||
-          eventStatus === 'screen') {
+      // Count interview and screening stages
+      if (eventStatus === 'screen' || eventStatus === 'interviewing') {
         totalInterviews++;
       }
-      // Count all offer-related statuses
-      if (eventStatus === 'offer' || eventStatus === 'accepted' || eventStatus === 'declined') {
+      // Count offer stages
+      if (eventStatus === 'offer' || eventStatus === 'accepted') {
         totalOffers++;
       }
     });
@@ -328,14 +320,12 @@ const processDailyData = (data: SimplifyJob[], filters?: AnalyticsFilters): Dail
       if (eventStatus === 'rejected') {
         dailyStats[eventDate].rejections++;
       }
-      // Count all interview-related statuses
-      if (eventStatus === 'interviewing' || eventStatus === 'phone screen' ||
-          eventStatus === 'technical screen' || eventStatus === 'onsite' ||
-          eventStatus === 'screen') {
+      // Count interview and screening stages
+      if (eventStatus === 'screen' || eventStatus === 'interviewing') {
         dailyStats[eventDate].interviews = (dailyStats[eventDate].interviews || 0) + 1;
       }
-      // Count all offer-related statuses
-      if (eventStatus === 'offer' || eventStatus === 'accepted' || eventStatus === 'declined') {
+      // Count offer stages
+      if (eventStatus === 'offer' || eventStatus === 'accepted') {
         dailyStats[eventDate].offers = (dailyStats[eventDate].offers || 0) + 1;
       }
     });
@@ -438,24 +428,22 @@ const processStatusDistribution = (data: SimplifyJob[]): StatusDistribution => {
       }
     }
     // Map status to distribution
-    else if (currentStatus === 'rejected' || currentStatus === 'rejection') {
+    else if (currentStatus === 'rejected') {
       distribution.rejected++;
     }
-    // All interview stages count as interviewing
-    else if (currentStatus === 'interviewing' || currentStatus === 'interview' ||
-             currentStatus === 'phone screen' || currentStatus === 'technical screen' ||
-             currentStatus === 'onsite' || currentStatus === 'screen') {
+    // Screening and interviewing stages
+    else if (currentStatus === 'screen') {
+      distribution.interviewing++; // Count screen as interviewing for pie chart
+    }
+    else if (currentStatus === 'interviewing') {
       distribution.interviewing++;
     }
-    // Offers (received but not yet accepted/declined)
-    else if (currentStatus === 'offer' || currentStatus === 'offered') {
+    // Offers
+    else if (currentStatus === 'offer') {
       distribution.offer++;
     }
     else if (currentStatus === 'accepted') {
       distribution.accepted++;
-    }
-    else if (currentStatus === 'withdrawn' || currentStatus === 'withdraw' || currentStatus === 'declined') {
-      distribution.withdrawn++;
     }
     else {
       // Unknown status, count as pending
@@ -503,17 +491,15 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
     const currentStatus = normalizeStatus(sortedEvents[0].status);
 
     // Only count CURRENT status, not historical
-    if (currentStatus === 'rejected' || currentStatus === 'rejection') {
+    if (currentStatus === 'rejected') {
       stats.rejections++;
     }
-    // All interview stages
-    if (currentStatus === 'interviewing' || currentStatus === 'interview' ||
-        currentStatus === 'phone screen' || currentStatus === 'technical screen' ||
-        currentStatus === 'onsite' || currentStatus === 'screen') {
+    // Interview stages
+    if (currentStatus === 'screen' || currentStatus === 'interviewing') {
       stats.interviews++;
     }
-    // All offer stages
-    if (currentStatus === 'offer' || currentStatus === 'offered' || currentStatus === 'accepted') {
+    // Offer stages
+    if (currentStatus === 'offer' || currentStatus === 'accepted') {
       stats.offers++;
     }
 
@@ -674,6 +660,49 @@ const processSuccessRateTrend = (dailyStats: DailyStatsMap): TrendDataPoint[] =>
     .sort((a, b) => a.date.localeCompare(b.date));
 };
 
+// Process Application Funnel
+// Flow: saved → applied → screen → interviewing → offer/rejected → accepted
+const processApplicationFunnel = (data: SimplifyJob[]): FunnelStage[] => {
+  const stageCounts = {
+    saved: 0,
+    applied: 0,
+    screen: 0,
+    interviewing: 0,
+    offer: 0,
+    rejected: 0,
+    accepted: 0,
+  };
+
+  // Count each job through ALL stages it went through
+  data.forEach(job => {
+    const statuses = new Set<string>();
+    job.status_events?.forEach(event => {
+      statuses.add(normalizeStatus(event.status));
+    });
+
+    // Count each stage the application went through
+    if (statuses.has('saved')) stageCounts.saved++;
+    if (statuses.has('applied')) stageCounts.applied++;
+    if (statuses.has('screen')) stageCounts.screen++;
+    if (statuses.has('interviewing')) stageCounts.interviewing++;
+    if (statuses.has('offer')) stageCounts.offer++;
+    if (statuses.has('rejected')) stageCounts.rejected++;
+    if (statuses.has('accepted')) stageCounts.accepted++;
+  });
+
+  const total = stageCounts.saved || 1; // Prevent division by zero
+
+  return [
+    { name: 'Saved', value: stageCounts.saved, percentage: (stageCounts.saved / total) * 100 },
+    { name: 'Applied', value: stageCounts.applied, percentage: (stageCounts.applied / total) * 100 },
+    { name: 'Screen', value: stageCounts.screen, percentage: (stageCounts.screen / total) * 100 },
+    { name: 'Interviewing', value: stageCounts.interviewing, percentage: (stageCounts.interviewing / total) * 100 },
+    { name: 'Offer', value: stageCounts.offer, percentage: (stageCounts.offer / total) * 100 },
+    { name: 'Rejected', value: stageCounts.rejected, percentage: (stageCounts.rejected / total) * 100 },
+    { name: 'Accepted', value: stageCounts.accepted, percentage: (stageCounts.accepted / total) * 100 },
+  ];
+};
+
 // Main processing function
 export const processAnalyticsData = (data: SimplifyJob[], filters?: AnalyticsFilters): ProcessedAnalyticsData => {
   const daily = processDailyData(data, filters);
@@ -690,5 +719,6 @@ export const processAnalyticsData = (data: SimplifyJob[], filters?: AnalyticsFil
     weeklyTrend: processWeeklyTrend(daily),
     monthlyTrend: processMonthlyTrend(daily),
     successRateTrend: processSuccessRateTrend(daily),
+    applicationFunnel: processApplicationFunnel(data),
   };
 };
