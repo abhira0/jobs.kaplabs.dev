@@ -1,11 +1,12 @@
-// Interactive Location Map with react-simple-maps
+// Interactive Location Map with react-leaflet
 // Shows world map with job locations and compensation tooltips
 
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
+import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import { LocationData, SimplifyJob } from '@/types/analytics';
+import 'leaflet/dist/leaflet.css';
 
 type InteractiveLocationMapProps = {
   locations: LocationData[];
@@ -14,7 +15,21 @@ type InteractiveLocationMapProps = {
   jobsData?: SimplifyJob[];
 };
 
-const WORLD_TOPO_JSON = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+// Helper function to validate coordinates
+function isValidCoordinate(lat: number, lng: number): boolean {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    !isNaN(lat) &&
+    !isNaN(lng) &&
+    isFinite(lat) &&
+    isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
 
 export default function InteractiveLocationMap({
   locations,
@@ -24,7 +39,13 @@ export default function InteractiveLocationMap({
 }: InteractiveLocationMapProps) {
   const [hoveredLocation, setHoveredLocation] = useState<LocationData | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isMounted, setIsMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Only render map on client side
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Calculate average compensation per location
   const locationCompensation = useMemo(() => {
@@ -34,6 +55,9 @@ export default function InteractiveLocationMap({
       if (!job.coordinates || !job.salary) return;
 
       job.coordinates.forEach(([lat, lng, name]) => {
+        // Validate coordinates
+        if (!isValidCoordinate(lat, lng)) return;
+
         const key = `${lat},${lng}`;
 
         let hourlyRate = 0;
@@ -49,7 +73,7 @@ export default function InteractiveLocationMap({
           }
         }
 
-        if (hourlyRate > 0) {
+        if (hourlyRate > 0 && isFinite(hourlyRate)) {
           const existing = compensationMap.get(key) || { total: 0, count: 0, avgPerHour: 0 };
           existing.total += hourlyRate;
           existing.count += 1;
@@ -72,15 +96,16 @@ export default function InteractiveLocationMap({
 
   const allLocations = useMemo(() => {
     return locations.filter(loc => {
+      if (!loc.coords || loc.coords.length < 2) return false;
       const [lat, lng] = loc.coords;
-      return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+      return isValidCoordinate(lat, lng);
     });
   }, [locations]);
 
-  const maxCount = Math.max(...allLocations.map(l => l.count), 1);
+  const maxCount = Math.max(...allLocations.map(l => l.count || 0), 1);
 
   const getCompensationColor = (avgHourly: number): string => {
-    if (avgHourly === 0) return '#6366f1';
+    if (!avgHourly || avgHourly === 0 || !isFinite(avgHourly)) return '#6366f1';
 
     const normalized = (avgHourly - minComp) / (maxComp - minComp || 1);
 
@@ -112,74 +137,70 @@ export default function InteractiveLocationMap({
         style={{ height: '500px' }}
         onMouseMove={handleMouseMove}
       >
-        <ComposableMap
-          projection="geoMercator"
-          projectionConfig={{
-            scale: 180,
-            center: [-96, 38],
-          }}
-          width={800}
-          height={500}
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-        >
-          <ZoomableGroup center={[-96, 38]} zoom={1.5} minZoom={1} maxZoom={8}>
-            <Geographies geography={WORLD_TOPO_JSON}>
-              {({ geographies }) =>
-                geographies.map((geo) => (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    fill="#1e293b"
-                    stroke="#334155"
-                    strokeWidth={0.5}
-                    style={{
-                      default: { outline: 'none' },
-                      hover: { outline: 'none', fill: '#334155' },
-                      pressed: { outline: 'none' },
-                    }}
-                  />
-                ))
-              }
-            </Geographies>
+        {!isMounted ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-muted text-sm">Loading map...</div>
+          </div>
+        ) : (
+          <MapContainer
+            center={[38, -96]}
+            zoom={3}
+            minZoom={1}
+            maxZoom={8}
+            style={{ width: '100%', height: '100%' }}
+            zoomControl={true}
+            scrollWheelZoom={true}
+            dragging={true}
+            doubleClickZoom={true}
+            touchZoom={true}
+            keyboard={true}
+          >
+            {/* Dark theme tile layer */}
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
 
             {/* Markers */}
             {allLocations.map((location) => {
               const [lat, lng] = location.coords;
-              const size = 4 + (location.count / maxCount) * 12;
+              const count = location.count || 0;
+              const size = 4 + (count / maxCount) * 12;
               const compensation = locationCompensation.get(location.key);
               const avgHourly = compensation?.avgPerHour || 0;
               const markerColor = getCompensationColor(avgHourly);
               const isHovered = hoveredLocation?.key === location.key;
 
+              // Double-check coordinates are valid before rendering
+              if (!isValidCoordinate(lat, lng) || !isFinite(size)) {
+                return null;
+              }
+
               return (
-                <Marker
+                <CircleMarker
                   key={location.key}
-                  coordinates={[lng, lat]}
-                  onMouseEnter={() => setHoveredLocation(location)}
-                  onMouseLeave={() => setHoveredLocation(null)}
-                >
-                  <circle
-                    r={size}
-                    fill={markerColor}
-                    fillOpacity={isHovered ? 1 : 0.7}
-                    stroke="#ffffff"
-                    strokeWidth={isHovered ? 2 : 1}
-                    className="transition-all duration-200"
-                    style={{ cursor: 'pointer' }}
-                  />
-                </Marker>
+                  center={[lat, lng]}
+                  radius={size}
+                  pathOptions={{
+                    fillColor: markerColor,
+                    fillOpacity: isHovered ? 1 : 0.7,
+                    color: '#ffffff',
+                    weight: isHovered ? 2 : 1,
+                  }}
+                  eventHandlers={{
+                    mouseover: () => setHoveredLocation(location),
+                    mouseout: () => setHoveredLocation(null),
+                  }}
+                />
               );
             })}
-          </ZoomableGroup>
-        </ComposableMap>
+          </MapContainer>
+        )}
 
         {/* HTML Tooltip */}
-        {hoveredLocation && (
+        {hoveredLocation && isMounted && (
           <div
-            className="absolute pointer-events-none z-50 px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl"
+            className="absolute pointer-events-none z-[1000] px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl"
             style={{
               left: `${mousePosition.x + 15}px`,
               top: `${mousePosition.y + 15}px`,
@@ -198,7 +219,7 @@ export default function InteractiveLocationMap({
         )}
 
         {/* Legend */}
-        <div className="absolute top-4 right-4 bg-gray-900/95 backdrop-blur rounded-md px-3 py-2 text-xs border border-default">
+        <div className="absolute top-4 right-4 bg-gray-900/95 backdrop-blur rounded-md px-3 py-2 text-xs border border-default z-[1000]">
           <div className="font-semibold mb-2">Legend</div>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">

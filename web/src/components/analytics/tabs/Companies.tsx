@@ -3,10 +3,10 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { ProcessedAnalyticsData, SimplifyJob } from '@/types/analytics';
 import ChartContainer from '../ChartContainer';
 import EmptyState from '../EmptyState';
-import InteractiveLocationMap from '../InteractiveLocationMap';
 import {
   BarChart,
   Bar,
@@ -17,6 +17,16 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+
+// Dynamically import the map component to avoid SSR issues with Leaflet
+const InteractiveLocationMap = dynamic(() => import('../InteractiveLocationMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[500px] bg-gray-950 rounded-lg border border-default">
+      <div className="text-muted text-sm">Loading map...</div>
+    </div>
+  ),
+});
 
 type CompaniesProps = {
   data: ProcessedAnalyticsData;
