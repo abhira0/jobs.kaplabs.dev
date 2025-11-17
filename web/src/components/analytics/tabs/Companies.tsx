@@ -31,18 +31,63 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
     return topCompanies.slice(0, showCount);
   }, [topCompanies, showCount]);
 
-  // Location data
+  // Calculate average compensation per location
+  const locationCompensation = useMemo(() => {
+    const compensationMap = new Map<string, { total: number; count: number; avgPerHour: number }>();
+
+    rawData.forEach(job => {
+      const location = job.job_posting_location;
+      if (!location || !job.salary || !job.salary_period) return;
+
+      // Skip remote and hybrid for location compensation
+      if (location.toLowerCase().includes('remote') || location.toLowerCase().includes('hybrid')) return;
+
+      // Extract location name (first part before comma)
+      const locationName = location.split(',')[0].trim();
+
+      // Convert salary to hourly rate based on salary_period
+      let hourlyRate = 0;
+      switch (job.salary_period) {
+        case 1: hourlyRate = job.salary; break; // hourly
+        case 2: hourlyRate = job.salary / 8; break; // daily (8 hours)
+        case 3: hourlyRate = job.salary / 40; break; // weekly (40 hours)
+        case 4: hourlyRate = job.salary / 80; break; // biweekly (80 hours)
+        case 5: hourlyRate = job.salary / 173; break; // monthly (173 hours)
+        case 6: hourlyRate = job.salary / 2080; break; // yearly (2080 hours)
+        default: hourlyRate = 0;
+      }
+
+      if (hourlyRate > 0) {
+        const existing = compensationMap.get(locationName) || { total: 0, count: 0, avgPerHour: 0 };
+        existing.total += hourlyRate;
+        existing.count += 1;
+        existing.avgPerHour = existing.total / existing.count;
+        compensationMap.set(locationName, existing);
+      }
+    });
+
+    return compensationMap;
+  }, [rawData]);
+
+  // Location data with compensation
   const topLocations = useMemo(() => {
     const sorted = [...location.locations]
       .sort((a, b) => b.count - a.count)
       .slice(0, 15);
 
     return [
-      ...sorted.map(loc => ({ name: loc.name, count: loc.count })),
-      { name: 'Remote', count: location.remoteCount },
-      { name: 'Hybrid', count: location.hybridCount },
+      ...sorted.map(loc => {
+        const comp = locationCompensation.get(loc.name);
+        return {
+          name: loc.name,
+          count: loc.count,
+          avgCompensation: comp?.avgPerHour || 0,
+        };
+      }),
+      { name: 'Remote', count: location.remoteCount, avgCompensation: 0 },
+      { name: 'Hybrid', count: location.hybridCount, avgCompensation: 0 },
     ].filter(l => l.count > 0);
-  }, [location]);
+  }, [location, locationCompensation]);
 
 
   if (topCompanies.length === 0) {
@@ -117,16 +162,16 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
       {/* Top Locations */}
       <ChartContainer
         title="Top Job Locations"
-        description="Most common job locations"
+        description="Most common job locations with average compensation"
         chartId="top-locations-chart"
         exportData={{
           name: 'Top Locations',
           data: topLocations,
-          headers: ['name', 'count'],
+          headers: ['name', 'count', 'avgCompensation'],
         }}
       >
         <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={topLocations} layout="vertical">
+          <BarChart data={topLocations} layout="vertical" margin={{ top: 5, right: 100, bottom: 5, left: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
             <XAxis type="number" stroke="#8b949e" style={{ fontSize: '12px' }} />
             <YAxis
@@ -144,8 +189,47 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
                 borderRadius: '8px',
                 fontSize: '12px',
               }}
+              content={({ active, payload }) => {
+                if (active && payload && payload.length > 0) {
+                  const data = payload[0].payload;
+                  return (
+                    <div className="bg-[#0f1117] border border-[#21262d] rounded-lg px-3 py-2 text-xs">
+                      <div className="font-semibold mb-1">{data.name}</div>
+                      <div className="text-muted">Jobs: {data.count}</div>
+                      {data.avgCompensation > 0 && (
+                        <div className="text-green-400 font-semibold mt-1">
+                          Avg: ${data.avgCompensation.toFixed(2)}/hr (${(data.avgCompensation * 2080).toLocaleString()}/year)
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
+              }}
             />
-            <Bar dataKey="count" fill="#8b5cf6" name="Jobs" radius={[0, 4, 4, 0]} />
+            <Bar
+              dataKey="count"
+              fill="#8b5cf6"
+              name="Jobs"
+              radius={[0, 4, 4, 0]}
+              label={({ x, y, width, height, index }) => {
+                const data = topLocations[index];
+                if (!data || data.avgCompensation <= 0) return null;
+
+                return (
+                  <text
+                    x={Number(x) + Number(width) + 5}
+                    y={Number(y) + Number(height) / 2 + 4}
+                    fill="#10b981"
+                    fontSize="11"
+                    fontWeight="600"
+                    textAnchor="start"
+                  >
+                    ${data.avgCompensation.toFixed(0)}/hr
+                  </text>
+                );
+              }}
+            />
           </BarChart>
         </ResponsiveContainer>
       </ChartContainer>

@@ -8,7 +8,12 @@ export type StatusEvent = {
 export type Coordinate = [number, number, string]; // [lat, lng, location_name]
 
 export type SimplifyJob = {
-  company_id: string;
+  company?: {
+    name: string;
+    id?: string;
+  };
+  // Legacy fields for backward compatibility
+  company_id?: string;
   company_name?: string;
   title?: string;
   job_posting_location?: string;
