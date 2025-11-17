@@ -16,9 +16,8 @@ import Overview from '@/components/analytics/tabs/Overview';
 import Applications from '@/components/analytics/tabs/Applications';
 import Companies from '@/components/analytics/tabs/Companies';
 import Compensation from '@/components/analytics/tabs/Compensation';
-import Insights from '@/components/analytics/tabs/Insights';
 
-type Tab = 'overview' | 'applications' | 'insights' | 'companies' | 'compensation';
+type Tab = 'overview' | 'applications' | 'companies' | 'compensation';
 
 // Fetcher function for SWR
 const fetcher = async (url: string): Promise<SimplifyJob[]> => {
@@ -78,7 +77,7 @@ function AnalyticsPageInner() {
     if (!rawData) return { companies: [], locations: [] };
 
     const uniqueCompanies = Array.from(
-      new Set(rawData.map(job => job.company_name || job.company_id).filter(Boolean))
+      new Set(rawData.map(job => job.company?.name || job.company_name || job.company_id).filter(Boolean))
     );
 
     const uniqueLocations = Array.from(
@@ -155,26 +154,30 @@ function AnalyticsPageInner() {
     }
   };
 
-  // Fetch saved filters
-  const fetchSavedFilters = async () => {
+  // Fetch saved filters (snapshot-specific or default)
+  const fetchSavedFilters = async (snapshotId: string | null = null) => {
     try {
       const token = localStorage.getItem('jwt_token');
-      const res = await fetch(buildApiUrl('/analytics/filters'), {
+
+      // Build URL with optional snapshot_id parameter
+      let url = '/analytics/filters';
+      if (snapshotId) {
+        url += `?snapshot_id=${snapshotId}`;
+      }
+
+      const res = await fetch(buildApiUrl(url), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       if (res.ok) {
         const data = await res.json();
-        // Only apply filters if the user hasn't manually changed them yet
-        // Check if we're viewing a snapshot - don't override snapshot filters
-        if (!viewingSnapshot && filters.dateRange === 'all') {
-          setFilters({
-            dateRange: data.date_range || 'all',
-            customStartDate: data.custom_start_date,
-            customEndDate: data.custom_end_date,
-          });
-        }
+        // Apply the loaded filters
+        setFilters({
+          dateRange: data.date_range || 'all',
+          customStartDate: data.custom_start_date,
+          customEndDate: data.custom_end_date,
+        });
       }
     } catch (error) {
       console.error('Failed to fetch saved filters:', error);
@@ -201,10 +204,8 @@ function AnalyticsPageInner() {
         setViewingSnapshot(snapshotData.data);
         setSnapshotName(snapshotData.name);
         setCurrentSnapshotId(snapshotId);
-        // Load saved filters if they exist
-        if (snapshotData.filters) {
-          setFilters(snapshotData.filters as AnalyticsFilters);
-        }
+        // Load snapshot-specific saved filters
+        await fetchSavedFilters(snapshotId);
         setIsSnapshotModalOpen(false);
       }
     } catch (error) {
@@ -217,15 +218,14 @@ function AnalyticsPageInner() {
     setViewingSnapshot(null);
     setSnapshotName(null);
     setCurrentSnapshotId(null);
-    // Reload default filters
-    fetchSavedFilters();
+    // Reload default filters (no snapshot ID)
+    fetchSavedFilters(null);
   };
 
   // Tabs configuration
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'applications', label: 'Applications' },
-    { id: 'insights', label: 'Insights' },
     { id: 'companies', label: 'Companies' },
     { id: 'compensation', label: 'Compensation' },
   ];
@@ -387,7 +387,6 @@ function AnalyticsPageInner() {
       <div role="tabpanel">
         {activeTab === 'overview' && <Overview data={processedData} />}
         {activeTab === 'applications' && <Applications data={processedData} />}
-        {activeTab === 'insights' && <Insights data={processedData} />}
         {activeTab === 'companies' && <Companies data={processedData} rawData={displayData || []} />}
         {activeTab === 'compensation' && <Compensation data={processedData} />}
       </div>

@@ -7,7 +7,6 @@ import { ProcessedAnalyticsData } from '@/types/analytics';
 import StatCard from '../StatCard';
 import ChartContainer from '../ChartContainer';
 import EmptyState from '../EmptyState';
-import SankeyDiagram from '../SankeyDiagram';
 import {
   AreaChart,
   Area,
@@ -34,96 +33,65 @@ export default function Overview({ data }: OverviewProps) {
     applications: value,
   }));
 
-  // Prepare Sankey diagram data
-  const sankeyData = useMemo(() => {
-    const colorMap: Record<string, string> = {
-      'Saved': '#6366f1',
-      'Applied': '#3b82f6',
-      'Ghosted': '#64748b',
-      'Screen': '#f59e0b',
-      'Interviewing': '#8b5cf6',
-      'Offer': '#10b981',
-      'Rejected': '#ef4444',
-      'Accepted': '#22c55e',
-    };
+  // Calculate conversion metrics (percentage of each stage relative to total applications)
+  const conversionMetrics = useMemo(() => {
+    const totalApps = summary.totalApps;
+    if (totalApps === 0) return null;
 
-    const nodes = applicationFunnel.map(stage => ({
-      name: stage.name,
-      value: stage.value,
-      color: colorMap[stage.name] || '#6366f1',
-    }));
+    return [
+      {
+        stage: 'Applications Submitted',
+        count: totalApps,
+        percentage: 100,
+        color: '#3b82f6',
+      },
+      {
+        stage: 'Ghosted (No Response)',
+        count: applicationFunnel.find(s => s.name === 'Ghosted')?.value || 0,
+        percentage: ((applicationFunnel.find(s => s.name === 'Ghosted')?.value || 0) / totalApps) * 100,
+        color: '#64748b',
+      },
+      {
+        stage: 'Screening Stage',
+        count: applicationFunnel.find(s => s.name === 'Screen')?.value || 0,
+        percentage: ((applicationFunnel.find(s => s.name === 'Screen')?.value || 0) / totalApps) * 100,
+        color: '#f59e0b',
+      },
+      {
+        stage: 'Interviewing',
+        count: applicationFunnel.find(s => s.name === 'Interviewing')?.value || 0,
+        percentage: ((applicationFunnel.find(s => s.name === 'Interviewing')?.value || 0) / totalApps) * 100,
+        color: '#8b5cf6',
+      },
+      {
+        stage: 'Offers Received',
+        count: applicationFunnel.find(s => s.name === 'Offer')?.value || 0,
+        percentage: ((applicationFunnel.find(s => s.name === 'Offer')?.value || 0) / totalApps) * 100,
+        color: '#10b981',
+      },
+      {
+        stage: 'Offers Accepted',
+        count: applicationFunnel.find(s => s.name === 'Accepted')?.value || 0,
+        percentage: ((applicationFunnel.find(s => s.name === 'Accepted')?.value || 0) / totalApps) * 100,
+        color: '#22c55e',
+      },
+      {
+        stage: 'Rejected',
+        count: applicationFunnel.find(s => s.name === 'Rejected')?.value || 0,
+        percentage: ((applicationFunnel.find(s => s.name === 'Rejected')?.value || 0) / totalApps) * 100,
+        color: '#ef4444',
+      },
+    ];
+  }, [summary, applicationFunnel]);
 
-    // Create links for the flow
-    const links = [];
-
-    // Applied -> Ghosted (those with no response)
-    const ghostedStage = applicationFunnel.find(s => s.name === 'Ghosted');
-    if (ghostedStage && ghostedStage.value > 0) {
-      links.push({
-        source: 'Applied',
-        target: 'Ghosted',
-        value: ghostedStage.value,
-        color: colorMap['Ghosted'] || '#64748b',
-      });
-    }
-
-    // Applied -> Screen
-    const screenStage = applicationFunnel.find(s => s.name === 'Screen');
-    if (screenStage && screenStage.value > 0) {
-      links.push({
-        source: 'Applied',
-        target: 'Screen',
-        value: screenStage.value,
-        color: colorMap['Screen'] || '#f59e0b',
-      });
-    }
-
-    // Screen -> Interviewing
-    const interviewingStage = applicationFunnel.find(s => s.name === 'Interviewing');
-    if (interviewingStage && interviewingStage.value > 0) {
-      links.push({
-        source: 'Screen',
-        target: 'Interviewing',
-        value: interviewingStage.value,
-        color: colorMap['Interviewing'] || '#8b5cf6',
-      });
-    }
-
-    // Interviewing -> Offer
-    const offerStage = applicationFunnel.find(s => s.name === 'Offer');
-    if (offerStage && offerStage.value > 0) {
-      links.push({
-        source: 'Interviewing',
-        target: 'Offer',
-        value: offerStage.value,
-        color: colorMap['Offer'] || '#10b981',
-      });
-    }
-
-    // Rejected can come from Applied, Screen, or Interviewing
-    const rejectedStage = applicationFunnel.find(s => s.name === 'Rejected');
-    if (rejectedStage && rejectedStage.value > 0) {
-      links.push({
-        source: 'Applied',
-        target: 'Rejected',
-        value: rejectedStage.value,
-        color: colorMap['Rejected'] || '#ef4444',
-      });
-    }
-
-    // Offer -> Accepted
-    const acceptedStage = applicationFunnel.find(s => s.name === 'Accepted');
-    if (acceptedStage && acceptedStage.value > 0) {
-      links.push({
-        source: 'Offer',
-        target: 'Accepted',
-        value: acceptedStage.value,
-        color: colorMap['Accepted'] || '#22c55e',
-      });
-    }
-
-    return { nodes, links };
-  }, [applicationFunnel]);
+  // Calculate overall success rate (interviews + offers / total apps)
+  const successRate = useMemo(() => {
+    if (summary.totalApps === 0) return 0;
+    const interviews = applicationFunnel.find(s => s.name === 'Interviewing')?.value || 0;
+    const offers = applicationFunnel.find(s => s.name === 'Offer')?.value || 0;
+    const accepted = applicationFunnel.find(s => s.name === 'Accepted')?.value || 0;
+    return ((interviews + offers + accepted) / summary.totalApps) * 100;
+  }, [summary, applicationFunnel]);
 
   if (!weeklyTrend || weeklyTrend.length === 0) {
     return <EmptyState title="No Data" description="No analytics data available yet. Start applying to jobs to see insights!" />;
@@ -147,9 +115,9 @@ export default function Overview({ data }: OverviewProps) {
         />
         <StatCard
           title="Success Rate"
-          value={summary.successRate || 0}
+          value={successRate.toFixed(1)}
+          suffix="%"
           subtitle="Interviews + Offers"
-          format="percentage"
         />
         <StatCard
           title="Avg Response Time"
@@ -212,18 +180,41 @@ export default function Overview({ data }: OverviewProps) {
         </ResponsiveContainer>
       </ChartContainer>
 
-      {/* Application Funnel - Sankey Diagram */}
+      {/* Conversion Metrics Breakdown */}
       <ChartContainer
-        title="Application Funnel"
-        description="Flow of applications through different stages"
-        chartId="application-funnel-chart"
-        exportData={{
-          name: 'Application Funnel',
-          data: applicationFunnel,
-          headers: ['name', 'value', 'percentage'],
-        }}
+        title="Conversion Metrics"
+        description="Percentage of applications reaching each stage"
       >
-        <SankeyDiagram nodes={sankeyData.nodes} links={sankeyData.links} />
+        <div className="space-y-4">
+          {conversionMetrics?.map((metric, index) => (
+            <div key={index} className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: metric.color }}
+                  />
+                  <span className="font-medium">{metric.stage}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-muted">{metric.count} apps</span>
+                  <span className="font-semibold min-w-[4rem] text-right">
+                    {metric.percentage.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              <div className="w-full bg-white/5 rounded-full h-3 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${metric.percentage}%`,
+                    backgroundColor: metric.color,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </ChartContainer>
 
       {/* Day of Week Distribution */}

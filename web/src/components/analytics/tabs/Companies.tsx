@@ -31,18 +31,63 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
     return topCompanies.slice(0, showCount);
   }, [topCompanies, showCount]);
 
-  // Location data
+  // Calculate average compensation per location
+  const locationCompensation = useMemo(() => {
+    const compensationMap = new Map<string, { total: number; count: number; avgPerHour: number }>();
+
+    rawData.forEach(job => {
+      const location = job.job_posting_location;
+      if (!location || !job.salary || !job.salary_period) return;
+
+      // Skip remote and hybrid for location compensation
+      if (location.toLowerCase().includes('remote') || location.toLowerCase().includes('hybrid')) return;
+
+      // Extract location name (first part before comma)
+      const locationName = location.split(',')[0].trim();
+
+      // Convert salary to hourly rate based on salary_period
+      let hourlyRate = 0;
+      switch (job.salary_period) {
+        case 1: hourlyRate = job.salary; break; // hourly
+        case 2: hourlyRate = job.salary / 8; break; // daily (8 hours)
+        case 3: hourlyRate = job.salary / 40; break; // weekly (40 hours)
+        case 4: hourlyRate = job.salary / 80; break; // biweekly (80 hours)
+        case 5: hourlyRate = job.salary / 173; break; // monthly (173 hours)
+        case 6: hourlyRate = job.salary / 2080; break; // yearly (2080 hours)
+        default: hourlyRate = 0;
+      }
+
+      if (hourlyRate > 0) {
+        const existing = compensationMap.get(locationName) || { total: 0, count: 0, avgPerHour: 0 };
+        existing.total += hourlyRate;
+        existing.count += 1;
+        existing.avgPerHour = existing.total / existing.count;
+        compensationMap.set(locationName, existing);
+      }
+    });
+
+    return compensationMap;
+  }, [rawData]);
+
+  // Location data with compensation
   const topLocations = useMemo(() => {
     const sorted = [...location.locations]
       .sort((a, b) => b.count - a.count)
       .slice(0, 15);
 
     return [
-      ...sorted.map(loc => ({ name: loc.name, count: loc.count })),
-      { name: 'Remote', count: location.remoteCount },
-      { name: 'Hybrid', count: location.hybridCount },
+      ...sorted.map(loc => {
+        const comp = locationCompensation.get(loc.name);
+        return {
+          name: loc.name,
+          count: loc.count,
+          avgCompensation: comp?.avgPerHour || 0,
+        };
+      }),
+      { name: 'Remote', count: location.remoteCount, avgCompensation: 0 },
+      { name: 'Hybrid', count: location.hybridCount, avgCompensation: 0 },
     ].filter(l => l.count > 0);
-  }, [location]);
+  }, [location, locationCompensation]);
 
 
   if (topCompanies.length === 0) {
@@ -117,12 +162,12 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
       {/* Top Locations */}
       <ChartContainer
         title="Top Job Locations"
-        description="Most common job locations"
+        description="Most common job locations with average compensation"
         chartId="top-locations-chart"
         exportData={{
           name: 'Top Locations',
           data: topLocations,
-          headers: ['name', 'count'],
+          headers: ['name', 'count', 'avgCompensation'],
         }}
       >
         <ResponsiveContainer width="100%" height={350}>
@@ -143,6 +188,21 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
                 border: '1px solid #21262d',
                 borderRadius: '8px',
                 fontSize: '12px',
+              }}
+              content={({ active, payload }) => {
+                if (active && payload && payload.length > 0) {
+                  const data = payload[0].payload;
+                  return (
+                    <div className="bg-[#0f1117] border border-[#21262d] rounded-lg px-3 py-2 text-xs">
+                      <div className="font-semibold mb-1">{data.name}</div>
+                      <div className="text-muted">Jobs: {data.count}</div>
+                      {data.avgCompensation > 0 && (
+                        <div className="text-muted">Avg: ${data.avgCompensation.toFixed(2)}/hr</div>
+                      )}
+                    </div>
+                  );
+                }
+                return null;
               }}
             />
             <Bar dataKey="count" fill="#8b5cf6" name="Jobs" radius={[0, 4, 4, 0]} />

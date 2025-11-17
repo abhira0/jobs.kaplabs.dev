@@ -89,6 +89,16 @@ const getResponseTimeRange = (days: number): ResponseTimeRange => {
   return '60+';
 };
 
+// Helper: Get company name from job (prioritize new structure)
+const getCompanyName = (job: SimplifyJob): string => {
+  return job.company?.name || job.company_name || job.company_id || 'Unknown Company';
+};
+
+// Helper: Get company ID from job (prioritize new structure)
+const getCompanyId = (job: SimplifyJob): string => {
+  return job.company?.id || job.company?.name || job.company_id || job.company_name || 'Unknown';
+};
+
 // Apply filters to data
 export const applyFilters = (data: SimplifyJob[], filters: AnalyticsFilters): SimplifyJob[] => {
   return data.filter(job => {
@@ -115,7 +125,8 @@ export const applyFilters = (data: SimplifyJob[], filters: AnalyticsFilters): Si
 
     // Company filter
     if (filters.companies && filters.companies.length > 0) {
-      if (!filters.companies.includes(job.company_id)) return false;
+      const companyName = getCompanyName(job);
+      if (!filters.companies.includes(companyName)) return false;
     }
 
     // Location filter
@@ -157,7 +168,7 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
     )
   ).length;
 
-  const totalCompanies = new Set(appliedJobs.map(job => job.company_id)).size;
+  const totalCompanies = new Set(appliedJobs.map(job => getCompanyId(job))).size;
 
   const todayCompanies = new Set(
     appliedJobs
@@ -166,7 +177,7 @@ const processSummaryStats = (data: SimplifyJob[]): SummaryStats => {
           event => normalizeStatus(event.status) === 'applied' && getLocalDateStr(event.timestamp)?.startsWith(today)
         )
       )
-      .map(job => job.company_id)
+      .map(job => getCompanyId(job))
   ).size;
 
   let totalRejections = 0;
@@ -460,18 +471,18 @@ const processCompanyStats = (data: SimplifyJob[]): CompanyStats[] => {
   const companyMap = new Map<string, CompanyStats>();
 
   data.forEach(job => {
-    // Use company_name as fallback if company_id is missing
-    const companyId = job.company_id || job.company_name || 'Unknown';
-    const companyName = job.company_name || job.company_id || 'Unknown Company';
+    // Use new nested structure with fallback to legacy fields
+    const companyId = getCompanyId(job);
+    const companyName = getCompanyName(job);
 
     // Skip jobs without status_events
     // NOTE: If Top Companies chart is empty, check that:
-    // 1. Jobs have company_id or company_name field populated
+    // 1. Jobs have company.name or legacy company_id/company_name field populated
     // 2. Jobs have status_events with at least an 'applied' status
     if (!job.status_events || job.status_events.length === 0) return;
 
-    // Skip if both company_id and company_name are missing
-    if (!job.company_id && !job.company_name) return;
+    // Skip if no company information is available
+    if (!job.company && !job.company_id && !job.company_name) return;
 
     if (!companyMap.has(companyId)) {
       companyMap.set(companyId, {
