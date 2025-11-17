@@ -197,7 +197,9 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
                       <div className="font-semibold mb-1">{data.name}</div>
                       <div className="text-muted">Jobs: {data.count}</div>
                       {data.avgCompensation > 0 && (
-                        <div className="text-muted">Avg: ${data.avgCompensation.toFixed(2)}/hr</div>
+                        <div className="text-green-400 font-semibold mt-1">
+                          Avg: ${data.avgCompensation.toFixed(2)}/hr (${(data.avgCompensation * 2080).toLocaleString()}/year)
+                        </div>
                       )}
                     </div>
                   );
@@ -205,7 +207,23 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
                 return null;
               }}
             />
-            <Bar dataKey="count" fill="#8b5cf6" name="Jobs" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="count" fill="#8b5cf6" name="Jobs" radius={[0, 4, 4, 0]} label={({ value, x, y, width, index, ...props }) => {
+              const data = topLocations[index];
+              if (data?.avgCompensation > 0) {
+                return (
+                  <text
+                    x={x + width + 5}
+                    y={y + 10}
+                    fill="#10b981"
+                    fontSize="11px"
+                    fontWeight="600"
+                  >
+                    ${data.avgCompensation.toFixed(0)}/hr
+                  </text>
+                );
+              }
+              return null;
+            }} />
           </BarChart>
         </ResponsiveContainer>
       </ChartContainer>

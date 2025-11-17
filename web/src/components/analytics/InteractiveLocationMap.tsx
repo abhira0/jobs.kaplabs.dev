@@ -26,6 +26,7 @@ export default function InteractiveLocationMap({
   const [tooltipContent, setTooltipContent] = useState<string>('');
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [hoveredLocation, setHoveredLocation] = useState<string | null>(null);
+  const [mapContainerRef, setMapContainerRef] = useState<HTMLDivElement | null>(null);
 
   // Calculate average compensation per location
   const locationCompensation = useMemo(() => {
@@ -133,15 +134,26 @@ export default function InteractiveLocationMap({
     `;
 
     setTooltipContent(content);
-    // Position tooltip closer to cursor
-    setTooltipPosition({ x: event.pageX, y: event.pageY });
+
+    // Calculate position relative to the map container
+    if (mapContainerRef) {
+      const rect = mapContainerRef.getBoundingClientRect();
+      setTooltipPosition({
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      });
+    }
     setHoveredLocation(location.key);
   };
 
   const handleMarkerMove = (event: React.MouseEvent) => {
-    if (tooltipContent) {
-      // Use pageX/pageY for more accurate positioning
-      setTooltipPosition({ x: event.pageX, y: event.pageY });
+    if (tooltipContent && mapContainerRef) {
+      // Update position relative to the map container
+      const rect = mapContainerRef.getBoundingClientRect();
+      setTooltipPosition({
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      });
     }
   };
 
@@ -153,7 +165,10 @@ export default function InteractiveLocationMap({
   return (
     <div className="space-y-4">
       {/* Map Container */}
-      <div className="relative rounded-lg overflow-hidden border border-default bg-gray-950">
+      <div
+        ref={setMapContainerRef}
+        className="relative rounded-lg overflow-hidden border border-default bg-gray-950"
+      >
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
@@ -227,11 +242,10 @@ export default function InteractiveLocationMap({
         {/* Tooltip */}
         {tooltipContent && (
           <div
-            className="absolute pointer-events-none z-50 px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl"
+            className="absolute pointer-events-none z-50 px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl whitespace-pre-line"
             style={{
-              left: tooltipPosition.x - 250,
-              top: tooltipPosition.y - 400,
-              transform: 'translate(15px, 15px)',
+              left: `${tooltipPosition.x + 15}px`,
+              top: `${tooltipPosition.y + 15}px`,
             }}
           >
             {tooltipContent.split('\n').map((line, i) => (
