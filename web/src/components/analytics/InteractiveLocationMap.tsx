@@ -32,7 +32,13 @@ export default function InteractiveLocationMap({
 }: InteractiveLocationMapProps) {
   const [hoveredLocation, setHoveredLocation] = useState<LocationData | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isMounted, setIsMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Only render map on client side
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Calculate average compensation per location
   const locationCompensation = useMemo(() => {
@@ -120,15 +126,20 @@ export default function InteractiveLocationMap({
         style={{ height: '500px' }}
         onMouseMove={handleMouseMove}
       >
-        <MapContainer
-          center={[38, -96]}
-          zoom={3}
-          minZoom={1}
-          maxZoom={8}
-          style={{ width: '100%', height: '100%' }}
-          zoomControl={true}
-          scrollWheelZoom={true}
-        >
+        {!isMounted ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-muted text-sm">Loading map...</div>
+          </div>
+        ) : (
+          <MapContainer
+            center={[38, -96]}
+            zoom={3}
+            minZoom={1}
+            maxZoom={8}
+            style={{ width: '100%', height: '100%' }}
+            zoomControl={true}
+            scrollWheelZoom={true}
+          >
           {/* Dark theme tile layer */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -165,6 +176,7 @@ export default function InteractiveLocationMap({
             );
           })}
         </MapContainer>
+        )}
 
         {/* HTML Tooltip */}
         {hoveredLocation && (
