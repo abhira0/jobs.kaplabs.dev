@@ -13,9 +13,9 @@ export function middleware(req: NextRequest) {
 
   // If user is authenticated and trying to access login, redirect to home
   if (pathname === "/login" && hasJwt) {
-    console.log("Middleware Debug - redirecting authenticated user from /login to /jobs");
+    console.log("Middleware Debug - redirecting authenticated user from /login to /analytics");
     const url = req.nextUrl.clone();
-    url.pathname = "/jobs";
+    url.pathname = "/analytics";
     return NextResponse.redirect(url);
   }
 
