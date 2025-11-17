@@ -207,23 +207,29 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
                 return null;
               }}
             />
-            <Bar dataKey="count" fill="#8b5cf6" name="Jobs" radius={[0, 4, 4, 0]} label={({ value, x, y, width, index, ...props }) => {
-              const data = topLocations[index];
-              if (data?.avgCompensation > 0) {
+            <Bar
+              dataKey="count"
+              fill="#8b5cf6"
+              name="Jobs"
+              radius={[0, 4, 4, 0]}
+              label={({ x, y, width, height, index }) => {
+                const data = topLocations[index];
+                if (!data || data.avgCompensation <= 0) return null;
+
                 return (
                   <text
-                    x={x + width + 5}
-                    y={y + 10}
+                    x={Number(x) + Number(width) + 5}
+                    y={Number(y) + Number(height) / 2 + 4}
                     fill="#10b981"
-                    fontSize="11px"
+                    fontSize="11"
                     fontWeight="600"
+                    textAnchor="start"
                   >
                     ${data.avgCompensation.toFixed(0)}/hr
                   </text>
                 );
-              }
-              return null;
-            }} />
+              }}
+            />
           </BarChart>
         </ResponsiveContainer>
       </ChartContainer>

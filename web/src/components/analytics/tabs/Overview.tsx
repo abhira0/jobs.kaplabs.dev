@@ -42,10 +42,13 @@ export default function Overview({ data }: OverviewProps) {
 
   // Prepare Sankey diagram data
   const sankeyData = useMemo(() => {
-    // Create nodes for each stage
-    const nodes = applicationFunnel.map(stage => ({
-      id: stage.name,
-      nodeColor: getStageColor(stage.name),
+    // Create nodes for each stage, ensuring we have "Applied" as the starting node
+    const allStageNames = ['Applied', ...applicationFunnel.map(s => s.name)];
+    const uniqueStages = Array.from(new Set(allStageNames));
+
+    const nodes = uniqueStages.map(stageName => ({
+      id: stageName,
+      nodeColor: getStageColor(stageName),
     }));
 
     // Create links between sequential stages based on actual flow

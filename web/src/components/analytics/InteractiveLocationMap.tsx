@@ -11,10 +11,10 @@ type InteractiveLocationMapProps = {
   locations: LocationData[];
   remoteCount: number;
   hybridCount: number;
-  jobsData?: SimplifyJob[]; // Raw job data to calculate compensation
+  jobsData?: SimplifyJob[];
 };
 
-// World GeoJSON URL from Natural Earth (public domain)
+// World GeoJSON URL
 const WORLD_TOPO_JSON = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 export default function InteractiveLocationMap({
@@ -23,10 +23,7 @@ export default function InteractiveLocationMap({
   hybridCount,
   jobsData = []
 }: InteractiveLocationMapProps) {
-  const [tooltipContent, setTooltipContent] = useState<string>('');
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [hoveredLocation, setHoveredLocation] = useState<string | null>(null);
-  const [mapContainerRef, setMapContainerRef] = useState<HTMLDivElement | null>(null);
 
   // Calculate average compensation per location
   const locationCompensation = useMemo(() => {
@@ -38,30 +35,17 @@ export default function InteractiveLocationMap({
       job.coordinates.forEach(([lat, lng, name]) => {
         const key = `${lat},${lng}`;
 
-        // Convert salary to hourly rate based on salary_period
+        // Convert salary to hourly rate
         let hourlyRate = 0;
         if (job.salary && job.salary_period) {
           switch (job.salary_period) {
-            case 1: // hourly
-              hourlyRate = job.salary;
-              break;
-            case 2: // daily (8 hours)
-              hourlyRate = job.salary / 8;
-              break;
-            case 3: // weekly (40 hours)
-              hourlyRate = job.salary / 40;
-              break;
-            case 4: // biweekly (80 hours)
-              hourlyRate = job.salary / 80;
-              break;
-            case 5: // monthly (173 hours)
-              hourlyRate = job.salary / 173;
-              break;
-            case 6: // yearly (2080 hours)
-              hourlyRate = job.salary / 2080;
-              break;
-            default:
-              hourlyRate = 0;
+            case 1: hourlyRate = job.salary; break;
+            case 2: hourlyRate = job.salary / 8; break;
+            case 3: hourlyRate = job.salary / 40; break;
+            case 4: hourlyRate = job.salary / 80; break;
+            case 5: hourlyRate = job.salary / 173; break;
+            case 6: hourlyRate = job.salary / 2080; break;
+            default: hourlyRate = 0;
           }
         }
 
@@ -78,7 +62,7 @@ export default function InteractiveLocationMap({
     return compensationMap;
   }, [jobsData]);
 
-  // Calculate min and max compensation for color scaling
+  // Calculate min and max for color scaling
   const { minComp, maxComp } = useMemo(() => {
     const comps = Array.from(locationCompensation.values()).map(c => c.avgPerHour);
     return {
@@ -87,107 +71,55 @@ export default function InteractiveLocationMap({
     };
   }, [locationCompensation]);
 
-  // Show all locations globally
+  // Filter valid locations
   const allLocations = useMemo(() => {
     return locations.filter(loc => {
       const [lat, lng] = loc.coords;
-      // Basic validation: ensure coordinates are within valid ranges
       return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     });
   }, [locations]);
 
   const maxCount = Math.max(...allLocations.map(l => l.count), 1);
 
-  // Helper function to get color based on compensation
+  // Get color based on compensation
   const getCompensationColor = (avgHourly: number): string => {
-    if (avgHourly === 0) return '#6366f1'; // Indigo for no data
+    if (avgHourly === 0) return '#6366f1';
 
-    // Normalize compensation to 0-1 scale
     const normalized = (avgHourly - minComp) / (maxComp - minComp || 1);
 
-    // Color gradient from red (low) -> yellow (mid) -> green (high)
     if (normalized < 0.5) {
-      // Red to Yellow
       const ratio = normalized * 2;
-      const r = 239; // ef
-      const g = Math.round(68 + (217 * ratio)); // 44 to f5
-      const b = 68; // 44
+      const r = 239;
+      const g = Math.round(68 + (217 * ratio));
+      const b = 68;
       return `rgb(${r}, ${g}, ${b})`;
     } else {
-      // Yellow to Green
       const ratio = (normalized - 0.5) * 2;
-      const r = Math.round(239 - (223 * ratio)); // f5 to 10
-      const g = Math.round(158 + (27 * ratio)); // 9e to b9
-      const b = Math.round(11 + (118 * ratio)); // 0b to 81
+      const r = Math.round(239 - (223 * ratio));
+      const g = Math.round(158 + (27 * ratio));
+      const b = Math.round(11 + (118 * ratio));
       return `rgb(${r}, ${g}, ${b})`;
     }
-  };
-
-  const handleMarkerEnter = (location: LocationData, event: React.MouseEvent) => {
-    const compensation = locationCompensation.get(location.key);
-    const avgHourly = compensation?.avgPerHour || 0;
-
-    const content = `
-      ${location.name}
-      ${location.count} ${location.count === 1 ? 'application' : 'applications'}
-      ${avgHourly > 0 ? `Avg: $${avgHourly.toFixed(2)}/hr` : 'No salary data'}
-    `;
-
-    setTooltipContent(content);
-
-    // Calculate position relative to the map container
-    if (mapContainerRef) {
-      const rect = mapContainerRef.getBoundingClientRect();
-      setTooltipPosition({
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
-      });
-    }
-    setHoveredLocation(location.key);
-  };
-
-  const handleMarkerMove = (event: React.MouseEvent) => {
-    if (tooltipContent && mapContainerRef) {
-      // Update position relative to the map container
-      const rect = mapContainerRef.getBoundingClientRect();
-      setTooltipPosition({
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top,
-      });
-    }
-  };
-
-  const handleMarkerLeave = () => {
-    setTooltipContent('');
-    setHoveredLocation(null);
   };
 
   return (
     <div className="space-y-4">
       {/* Map Container */}
-      <div
-        ref={setMapContainerRef}
-        className="relative rounded-lg overflow-hidden border border-default bg-gray-950"
-      >
+      <div className="relative rounded-lg overflow-hidden border border-default bg-gray-950 h-[500px]">
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
             scale: 180,
-            center: [-96, 38], // Center on USA
+            center: [-96, 38],
           }}
           width={800}
           height={500}
           style={{
             width: '100%',
-            height: 'auto',
+            height: '100%',
           }}
         >
-          <ZoomableGroup
-            center={[-96, 38]}
-            zoom={1.5}
-            minZoom={1}
-            maxZoom={8}
-          >
+          <ZoomableGroup center={[-96, 38]} zoom={1.5} minZoom={1} maxZoom={8}>
             <Geographies geography={WORLD_TOPO_JSON}>
               {({ geographies }) =>
                 geographies.map((geo) => (
@@ -207,7 +139,7 @@ export default function InteractiveLocationMap({
               }
             </Geographies>
 
-            {/* Markers for job locations */}
+            {/* Markers */}
             {allLocations.map((location) => {
               const [lat, lng] = location.coords;
               const size = 4 + (location.count / maxCount) * 12;
@@ -220,64 +152,97 @@ export default function InteractiveLocationMap({
                 <Marker
                   key={location.key}
                   coordinates={[lng, lat]}
-                  onMouseEnter={(event) => handleMarkerEnter(location, event)}
-                  onMouseMove={handleMarkerMove}
-                  onMouseLeave={handleMarkerLeave}
-                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredLocation(location.key)}
+                  onMouseLeave={() => setHoveredLocation(null)}
                 >
-                  <circle
-                    r={size}
-                    fill={markerColor}
-                    fillOpacity={isHovered ? 1 : 0.7}
-                    stroke="#ffffff"
-                    strokeWidth={isHovered ? 2 : 1}
-                    className="transition-all duration-200"
-                  />
+                  <g>
+                    <circle
+                      r={size}
+                      fill={markerColor}
+                      fillOpacity={isHovered ? 1 : 0.7}
+                      stroke="#ffffff"
+                      strokeWidth={isHovered ? 2 : 1}
+                      className="transition-all duration-200"
+                      style={{ cursor: 'pointer' }}
+                    />
+                    {isHovered && (
+                      <g>
+                        {/* Tooltip background */}
+                        <rect
+                          x={size + 8}
+                          y={-30}
+                          width={180}
+                          height={avgHourly > 0 ? 60 : 45}
+                          fill="#0f1117"
+                          stroke="#374151"
+                          strokeWidth={1}
+                          rx={6}
+                          opacity={0.98}
+                        />
+                        {/* Location name */}
+                        <text
+                          x={size + 18}
+                          y={-10}
+                          fontSize={12}
+                          fontWeight="600"
+                          fill="#ffffff"
+                        >
+                          {location.name.length > 20 ? location.name.slice(0, 20) + '...' : location.name}
+                        </text>
+                        {/* Count */}
+                        <text
+                          x={size + 18}
+                          y={6}
+                          fontSize={11}
+                          fill="#9ca3af"
+                        >
+                          {location.count} {location.count === 1 ? 'application' : 'applications'}
+                        </text>
+                        {/* Compensation */}
+                        {avgHourly > 0 && (
+                          <text
+                            x={size + 18}
+                            y={22}
+                            fontSize={11}
+                            fill="#10b981"
+                            fontWeight="600"
+                          >
+                            Avg: ${avgHourly.toFixed(2)}/hr
+                          </text>
+                        )}
+                      </g>
+                    )}
+                  </g>
                 </Marker>
               );
             })}
           </ZoomableGroup>
         </ComposableMap>
 
-        {/* Tooltip */}
-        {tooltipContent && (
-          <div
-            className="absolute pointer-events-none z-50 px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl whitespace-pre-line"
-            style={{
-              left: `${tooltipPosition.x + 15}px`,
-              top: `${tooltipPosition.y + 15}px`,
-            }}
-          >
-            {tooltipContent.split('\n').map((line, i) => (
-              <div key={i} className={i === 0 ? 'font-semibold' : ''}>
-                {line}
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Legend */}
-        <div className="absolute top-2 right-2 bg-gray-900/95 backdrop-blur rounded-md px-3 py-2 text-xs border border-default max-w-[180px]">
+        <div className="absolute top-4 right-4 bg-gray-900/95 backdrop-blur rounded-md px-3 py-2 text-xs border border-default">
           <div className="font-semibold mb-2">Legend</div>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <span className="text-muted">Low compensation</span>
+              <span className="text-muted">Low pay</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-              <span className="text-muted">Mid compensation</span>
+              <span className="text-muted">Mid pay</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span className="text-muted">High compensation</span>
+              <span className="text-muted">High pay</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-              <span className="text-muted">No salary data</span>
+              <span className="text-muted">No data</span>
             </div>
           </div>
-          <div className="text-muted mt-2 pt-2 border-t border-gray-700">Size = # of applications</div>
+          <div className="text-muted mt-2 pt-2 border-t border-gray-700">
+            Size = # of apps
+          </div>
         </div>
       </div>
 
