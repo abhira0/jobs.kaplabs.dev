@@ -4,7 +4,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import { LocationData, SimplifyJob } from '@/types/analytics';
 import 'leaflet/dist/leaflet.css';
 
@@ -15,13 +15,20 @@ type InteractiveLocationMapProps = {
   jobsData?: SimplifyJob[];
 };
 
-// Component to set initial view
-function SetViewOnMount({ center, zoom }: { center: [number, number]; zoom: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [map, center, zoom]);
-  return null;
+// Helper function to validate coordinates
+function isValidCoordinate(lat: number, lng: number): boolean {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    !isNaN(lat) &&
+    !isNaN(lng) &&
+    isFinite(lat) &&
+    isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
 }
 
 export default function InteractiveLocationMap({
@@ -48,6 +55,9 @@ export default function InteractiveLocationMap({
       if (!job.coordinates || !job.salary) return;
 
       job.coordinates.forEach(([lat, lng, name]) => {
+        // Validate coordinates
+        if (!isValidCoordinate(lat, lng)) return;
+
         const key = `${lat},${lng}`;
 
         let hourlyRate = 0;
@@ -63,7 +73,7 @@ export default function InteractiveLocationMap({
           }
         }
 
-        if (hourlyRate > 0) {
+        if (hourlyRate > 0 && isFinite(hourlyRate)) {
           const existing = compensationMap.get(key) || { total: 0, count: 0, avgPerHour: 0 };
           existing.total += hourlyRate;
           existing.count += 1;
@@ -86,15 +96,16 @@ export default function InteractiveLocationMap({
 
   const allLocations = useMemo(() => {
     return locations.filter(loc => {
+      if (!loc.coords || loc.coords.length < 2) return false;
       const [lat, lng] = loc.coords;
-      return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+      return isValidCoordinate(lat, lng);
     });
   }, [locations]);
 
-  const maxCount = Math.max(...allLocations.map(l => l.count), 1);
+  const maxCount = Math.max(...allLocations.map(l => l.count || 0), 1);
 
   const getCompensationColor = (avgHourly: number): string => {
-    if (avgHourly === 0) return '#6366f1';
+    if (!avgHourly || avgHourly === 0 || !isFinite(avgHourly)) return '#6366f1';
 
     const normalized = (avgHourly - minComp) / (maxComp - minComp || 1);
 
@@ -139,47 +150,55 @@ export default function InteractiveLocationMap({
             style={{ width: '100%', height: '100%' }}
             zoomControl={true}
             scrollWheelZoom={true}
+            dragging={true}
+            doubleClickZoom={true}
+            touchZoom={true}
+            keyboard={true}
           >
-          {/* Dark theme tile layer */}
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          />
+            {/* Dark theme tile layer */}
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
 
-          <SetViewOnMount center={[38, -96]} zoom={3} />
+            {/* Markers */}
+            {allLocations.map((location) => {
+              const [lat, lng] = location.coords;
+              const count = location.count || 0;
+              const size = 4 + (count / maxCount) * 12;
+              const compensation = locationCompensation.get(location.key);
+              const avgHourly = compensation?.avgPerHour || 0;
+              const markerColor = getCompensationColor(avgHourly);
+              const isHovered = hoveredLocation?.key === location.key;
 
-          {/* Markers */}
-          {allLocations.map((location) => {
-            const [lat, lng] = location.coords;
-            const size = 4 + (location.count / maxCount) * 12;
-            const compensation = locationCompensation.get(location.key);
-            const avgHourly = compensation?.avgPerHour || 0;
-            const markerColor = getCompensationColor(avgHourly);
-            const isHovered = hoveredLocation?.key === location.key;
+              // Double-check coordinates are valid before rendering
+              if (!isValidCoordinate(lat, lng) || !isFinite(size)) {
+                return null;
+              }
 
-            return (
-              <CircleMarker
-                key={location.key}
-                center={[lat, lng]}
-                radius={size}
-                pathOptions={{
-                  fillColor: markerColor,
-                  fillOpacity: isHovered ? 1 : 0.7,
-                  color: '#ffffff',
-                  weight: isHovered ? 2 : 1,
-                }}
-                eventHandlers={{
-                  mouseover: () => setHoveredLocation(location),
-                  mouseout: () => setHoveredLocation(null),
-                }}
-              />
-            );
-          })}
-        </MapContainer>
+              return (
+                <CircleMarker
+                  key={location.key}
+                  center={[lat, lng]}
+                  radius={size}
+                  pathOptions={{
+                    fillColor: markerColor,
+                    fillOpacity: isHovered ? 1 : 0.7,
+                    color: '#ffffff',
+                    weight: isHovered ? 2 : 1,
+                  }}
+                  eventHandlers={{
+                    mouseover: () => setHoveredLocation(location),
+                    mouseout: () => setHoveredLocation(null),
+                  }}
+                />
+              );
+            })}
+          </MapContainer>
         )}
 
         {/* HTML Tooltip */}
-        {hoveredLocation && (
+        {hoveredLocation && isMounted && (
           <div
             className="absolute pointer-events-none z-[1000] px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl"
             style={{
