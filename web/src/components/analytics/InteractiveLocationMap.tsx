@@ -1,11 +1,12 @@
-// Interactive Location Map with react-simple-maps
+// Interactive Location Map with react-leaflet
 // Shows world map with job locations and compensation tooltips
 
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
+import { MapContainer, TileLayer, CircleMarker, useMap } from 'react-leaflet';
 import { LocationData, SimplifyJob } from '@/types/analytics';
+import 'leaflet/dist/leaflet.css';
 
 type InteractiveLocationMapProps = {
   locations: LocationData[];
@@ -14,7 +15,14 @@ type InteractiveLocationMapProps = {
   jobsData?: SimplifyJob[];
 };
 
-const WORLD_TOPO_JSON = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+// Component to set initial view
+function SetViewOnMount({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [map, center, zoom]);
+  return null;
+}
 
 export default function InteractiveLocationMap({
   locations,
@@ -112,74 +120,56 @@ export default function InteractiveLocationMap({
         style={{ height: '500px' }}
         onMouseMove={handleMouseMove}
       >
-        <ComposableMap
-          projection="geoMercator"
-          projectionConfig={{
-            scale: 180,
-            center: [-96, 38],
-          }}
-          width={800}
-          height={500}
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
+        <MapContainer
+          center={[38, -96]}
+          zoom={3}
+          minZoom={1}
+          maxZoom={8}
+          style={{ width: '100%', height: '100%' }}
+          zoomControl={true}
+          scrollWheelZoom={true}
         >
-          <ZoomableGroup center={[-96, 38]} zoom={1.5} minZoom={1} maxZoom={8}>
-            <Geographies geography={WORLD_TOPO_JSON}>
-              {({ geographies }) =>
-                geographies.map((geo) => (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    fill="#1e293b"
-                    stroke="#334155"
-                    strokeWidth={0.5}
-                    style={{
-                      default: { outline: 'none' },
-                      hover: { outline: 'none', fill: '#334155' },
-                      pressed: { outline: 'none' },
-                    }}
-                  />
-                ))
-              }
-            </Geographies>
+          {/* Dark theme tile layer */}
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
 
-            {/* Markers */}
-            {allLocations.map((location) => {
-              const [lat, lng] = location.coords;
-              const size = 4 + (location.count / maxCount) * 12;
-              const compensation = locationCompensation.get(location.key);
-              const avgHourly = compensation?.avgPerHour || 0;
-              const markerColor = getCompensationColor(avgHourly);
-              const isHovered = hoveredLocation?.key === location.key;
+          <SetViewOnMount center={[38, -96]} zoom={3} />
 
-              return (
-                <Marker
-                  key={location.key}
-                  coordinates={[lng, lat]}
-                  onMouseEnter={() => setHoveredLocation(location)}
-                  onMouseLeave={() => setHoveredLocation(null)}
-                >
-                  <circle
-                    r={size}
-                    fill={markerColor}
-                    fillOpacity={isHovered ? 1 : 0.7}
-                    stroke="#ffffff"
-                    strokeWidth={isHovered ? 2 : 1}
-                    className="transition-all duration-200"
-                    style={{ cursor: 'pointer' }}
-                  />
-                </Marker>
-              );
-            })}
-          </ZoomableGroup>
-        </ComposableMap>
+          {/* Markers */}
+          {allLocations.map((location) => {
+            const [lat, lng] = location.coords;
+            const size = 4 + (location.count / maxCount) * 12;
+            const compensation = locationCompensation.get(location.key);
+            const avgHourly = compensation?.avgPerHour || 0;
+            const markerColor = getCompensationColor(avgHourly);
+            const isHovered = hoveredLocation?.key === location.key;
+
+            return (
+              <CircleMarker
+                key={location.key}
+                center={[lat, lng]}
+                radius={size}
+                pathOptions={{
+                  fillColor: markerColor,
+                  fillOpacity: isHovered ? 1 : 0.7,
+                  color: '#ffffff',
+                  weight: isHovered ? 2 : 1,
+                }}
+                eventHandlers={{
+                  mouseover: () => setHoveredLocation(location),
+                  mouseout: () => setHoveredLocation(null),
+                }}
+              />
+            );
+          })}
+        </MapContainer>
 
         {/* HTML Tooltip */}
         {hoveredLocation && (
           <div
-            className="absolute pointer-events-none z-50 px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl"
+            className="absolute pointer-events-none z-[1000] px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl"
             style={{
               left: `${mousePosition.x + 15}px`,
               top: `${mousePosition.y + 15}px`,
@@ -198,7 +188,7 @@ export default function InteractiveLocationMap({
         )}
 
         {/* Legend */}
-        <div className="absolute top-4 right-4 bg-gray-900/95 backdrop-blur rounded-md px-3 py-2 text-xs border border-default">
+        <div className="absolute top-4 right-4 bg-gray-900/95 backdrop-blur rounded-md px-3 py-2 text-xs border border-default z-[1000]">
           <div className="font-semibold mb-2">Legend</div>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
