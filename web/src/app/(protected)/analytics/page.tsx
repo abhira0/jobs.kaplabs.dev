@@ -184,10 +184,23 @@ function AnalyticsPageInner() {
     }
   };
 
-  // Fetch snapshots and saved filters on mount
+  // Fetch snapshots and restore snapshot view if needed
   useEffect(() => {
-    fetchSnapshots();
-    fetchSavedFilters();
+    const init = async () => {
+      await fetchSnapshots();
+
+      // Check if we were viewing a snapshot before refresh
+      const savedSnapshotId = localStorage.getItem('viewing_snapshot_id');
+      if (savedSnapshotId) {
+        // Restore snapshot view
+        await handleViewSnapshot(savedSnapshotId);
+      } else {
+        // Load default filters
+        await fetchSavedFilters(null);
+      }
+    };
+
+    init();
   }, []);
 
   // View snapshot
@@ -204,6 +217,10 @@ function AnalyticsPageInner() {
         setViewingSnapshot(snapshotData.data);
         setSnapshotName(snapshotData.name);
         setCurrentSnapshotId(snapshotId);
+
+        // Save to localStorage so we can restore on refresh
+        localStorage.setItem('viewing_snapshot_id', snapshotId);
+
         // Load snapshot-specific saved filters
         await fetchSavedFilters(snapshotId);
         setIsSnapshotModalOpen(false);
@@ -218,6 +235,10 @@ function AnalyticsPageInner() {
     setViewingSnapshot(null);
     setSnapshotName(null);
     setCurrentSnapshotId(null);
+
+    // Remove from localStorage
+    localStorage.removeItem('viewing_snapshot_id');
+
     // Reload default filters (no snapshot ID)
     fetchSavedFilters(null);
   };

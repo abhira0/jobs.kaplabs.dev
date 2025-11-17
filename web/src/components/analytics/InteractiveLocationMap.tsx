@@ -1,9 +1,9 @@
 // Interactive Location Map with react-simple-maps
-// Shows world map with default focus on USA, with job locations and average compensation on hover
+// Shows world map with job locations and compensation tooltips
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { ComposableMap, Geographies, Geography, Marker, ZoomableGroup } from 'react-simple-maps';
 import { LocationData, SimplifyJob } from '@/types/analytics';
 
@@ -14,7 +14,6 @@ type InteractiveLocationMapProps = {
   jobsData?: SimplifyJob[];
 };
 
-// World GeoJSON URL
 const WORLD_TOPO_JSON = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 export default function InteractiveLocationMap({
@@ -23,7 +22,9 @@ export default function InteractiveLocationMap({
   hybridCount,
   jobsData = []
 }: InteractiveLocationMapProps) {
-  const [hoveredLocation, setHoveredLocation] = useState<string | null>(null);
+  const [hoveredLocation, setHoveredLocation] = useState<LocationData | null>(null);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Calculate average compensation per location
   const locationCompensation = useMemo(() => {
@@ -35,7 +36,6 @@ export default function InteractiveLocationMap({
       job.coordinates.forEach(([lat, lng, name]) => {
         const key = `${lat},${lng}`;
 
-        // Convert salary to hourly rate
         let hourlyRate = 0;
         if (job.salary && job.salary_period) {
           switch (job.salary_period) {
@@ -62,7 +62,6 @@ export default function InteractiveLocationMap({
     return compensationMap;
   }, [jobsData]);
 
-  // Calculate min and max for color scaling
   const { minComp, maxComp } = useMemo(() => {
     const comps = Array.from(locationCompensation.values()).map(c => c.avgPerHour);
     return {
@@ -71,7 +70,6 @@ export default function InteractiveLocationMap({
     };
   }, [locationCompensation]);
 
-  // Filter valid locations
   const allLocations = useMemo(() => {
     return locations.filter(loc => {
       const [lat, lng] = loc.coords;
@@ -81,7 +79,6 @@ export default function InteractiveLocationMap({
 
   const maxCount = Math.max(...allLocations.map(l => l.count), 1);
 
-  // Get color based on compensation
   const getCompensationColor = (avgHourly: number): string => {
     if (avgHourly === 0) return '#6366f1';
 
@@ -89,23 +86,32 @@ export default function InteractiveLocationMap({
 
     if (normalized < 0.5) {
       const ratio = normalized * 2;
-      const r = 239;
-      const g = Math.round(68 + (217 * ratio));
-      const b = 68;
-      return `rgb(${r}, ${g}, ${b})`;
+      return `rgb(239, ${Math.round(68 + 217 * ratio)}, 68)`;
     } else {
       const ratio = (normalized - 0.5) * 2;
-      const r = Math.round(239 - (223 * ratio));
-      const g = Math.round(158 + (27 * ratio));
-      const b = Math.round(11 + (118 * ratio));
-      return `rgb(${r}, ${g}, ${b})`;
+      return `rgb(${Math.round(239 - 223 * ratio)}, ${Math.round(158 + 27 * ratio)}, ${Math.round(11 + 118 * ratio)})`;
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setMousePosition({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      });
     }
   };
 
   return (
     <div className="space-y-4">
       {/* Map Container */}
-      <div className="relative rounded-lg overflow-hidden border border-default bg-gray-950 h-[500px]">
+      <div
+        ref={containerRef}
+        className="relative rounded-lg overflow-hidden border border-default bg-gray-950"
+        style={{ height: '500px' }}
+        onMouseMove={handleMouseMove}
+      >
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
@@ -146,78 +152,50 @@ export default function InteractiveLocationMap({
               const compensation = locationCompensation.get(location.key);
               const avgHourly = compensation?.avgPerHour || 0;
               const markerColor = getCompensationColor(avgHourly);
-              const isHovered = hoveredLocation === location.key;
+              const isHovered = hoveredLocation?.key === location.key;
 
               return (
                 <Marker
                   key={location.key}
                   coordinates={[lng, lat]}
-                  onMouseEnter={() => setHoveredLocation(location.key)}
+                  onMouseEnter={() => setHoveredLocation(location)}
                   onMouseLeave={() => setHoveredLocation(null)}
                 >
-                  <g>
-                    <circle
-                      r={size}
-                      fill={markerColor}
-                      fillOpacity={isHovered ? 1 : 0.7}
-                      stroke="#ffffff"
-                      strokeWidth={isHovered ? 2 : 1}
-                      className="transition-all duration-200"
-                      style={{ cursor: 'pointer' }}
-                    />
-                    {isHovered && (
-                      <g>
-                        {/* Tooltip background */}
-                        <rect
-                          x={size + 8}
-                          y={-30}
-                          width={180}
-                          height={avgHourly > 0 ? 60 : 45}
-                          fill="#0f1117"
-                          stroke="#374151"
-                          strokeWidth={1}
-                          rx={6}
-                          opacity={0.98}
-                        />
-                        {/* Location name */}
-                        <text
-                          x={size + 18}
-                          y={-10}
-                          fontSize={12}
-                          fontWeight="600"
-                          fill="#ffffff"
-                        >
-                          {location.name.length > 20 ? location.name.slice(0, 20) + '...' : location.name}
-                        </text>
-                        {/* Count */}
-                        <text
-                          x={size + 18}
-                          y={6}
-                          fontSize={11}
-                          fill="#9ca3af"
-                        >
-                          {location.count} {location.count === 1 ? 'application' : 'applications'}
-                        </text>
-                        {/* Compensation */}
-                        {avgHourly > 0 && (
-                          <text
-                            x={size + 18}
-                            y={22}
-                            fontSize={11}
-                            fill="#10b981"
-                            fontWeight="600"
-                          >
-                            Avg: ${avgHourly.toFixed(2)}/hr
-                          </text>
-                        )}
-                      </g>
-                    )}
-                  </g>
+                  <circle
+                    r={size}
+                    fill={markerColor}
+                    fillOpacity={isHovered ? 1 : 0.7}
+                    stroke="#ffffff"
+                    strokeWidth={isHovered ? 2 : 1}
+                    className="transition-all duration-200"
+                    style={{ cursor: 'pointer' }}
+                  />
                 </Marker>
               );
             })}
           </ZoomableGroup>
         </ComposableMap>
+
+        {/* HTML Tooltip */}
+        {hoveredLocation && (
+          <div
+            className="absolute pointer-events-none z-50 px-3 py-2 bg-gray-900/95 backdrop-blur border border-gray-700 rounded-lg text-xs text-white shadow-xl"
+            style={{
+              left: `${mousePosition.x + 15}px`,
+              top: `${mousePosition.y + 15}px`,
+            }}
+          >
+            <div className="font-semibold mb-1">{hoveredLocation.name}</div>
+            <div className="text-gray-300">
+              {hoveredLocation.count} {hoveredLocation.count === 1 ? 'application' : 'applications'}
+            </div>
+            {locationCompensation.get(hoveredLocation.key) && (
+              <div className="text-green-400 font-semibold mt-1">
+                Avg: ${locationCompensation.get(hoveredLocation.key)!.avgPerHour.toFixed(2)}/hr
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Legend */}
         <div className="absolute top-4 right-4 bg-gray-900/95 backdrop-blur rounded-md px-3 py-2 text-xs border border-default">

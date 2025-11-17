@@ -704,18 +704,15 @@ const processApplicationFunnel = (data: SimplifyJob[]): FunnelStage[] => {
     // Count each stage the application went through
     if (statuses.has('saved')) stageCounts.saved++;
     if (statuses.has('applied')) stageCounts.applied++;
-
-    // Check if ghosted (applied but only has 'applied' status)
-    if (statuses.has('applied') && statuses.size === 1) {
-      stageCounts.ghosted++;
-    }
-
     if (statuses.has('screen')) stageCounts.screen++;
     if (statuses.has('interviewing')) stageCounts.interviewing++;
     if (statuses.has('offer')) stageCounts.offer++;
     if (statuses.has('rejected')) stageCounts.rejected++;
     if (statuses.has('accepted')) stageCounts.accepted++;
   });
+
+  // Calculate ghosted: applied - rejected - accepted - offer
+  stageCounts.ghosted = Math.max(0, stageCounts.applied - stageCounts.rejected - stageCounts.accepted - stageCounts.offer);
 
   const total = stageCounts.saved || 1; // Prevent division by zero
 

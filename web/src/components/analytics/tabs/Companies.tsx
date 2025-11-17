@@ -171,7 +171,7 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
         }}
       >
         <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={topLocations} layout="vertical">
+          <BarChart data={topLocations} layout="vertical" margin={{ top: 5, right: 100, bottom: 5, left: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
             <XAxis type="number" stroke="#8b949e" style={{ fontSize: '12px' }} />
             <YAxis
