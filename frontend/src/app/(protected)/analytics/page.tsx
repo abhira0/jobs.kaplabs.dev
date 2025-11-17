@@ -203,6 +203,23 @@ function AnalyticsPageInner() {
     init();
   }, []);
 
+  // Auto-load first snapshot if no current data
+  useEffect(() => {
+    const autoLoadSnapshot = async () => {
+      // Only auto-load if:
+      // 1. We're not already viewing a snapshot
+      // 2. There's no current data
+      // 3. We have snapshots available
+      // 4. Data has finished loading
+      if (!viewingSnapshot && (!rawData || rawData.length === 0) && !isLoading && snapshots.length > 0) {
+        // Load the most recent snapshot (first in the list)
+        await handleViewSnapshot(snapshots[0].id);
+      }
+    };
+
+    autoLoadSnapshot();
+  }, [rawData, isLoading, snapshots, viewingSnapshot]);
+
   // View snapshot
   const handleViewSnapshot = async (snapshotId: string) => {
     try {

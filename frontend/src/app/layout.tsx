@@ -25,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
         <div className="min-h-screen flex flex-col">
           <header className="sticky top-0 z-40 border-b border-default backdrop-blur supports-[backdrop-filter]:bg-black/40">
             <nav className="container-px mx-auto flex h-16 items-center justify-between">
@@ -38,7 +38,7 @@ export default function RootLayout({
           </header>
           <main className="container-px mx-auto w-full max-w-6xl flex-1 py-8">{children}</main>
           <footer className="container-px mx-auto w-full max-w-6xl py-8 text-xs text-muted">
-            <p>© {new Date().getFullYear()} KapLabs Jobs</p>
+            <p suppressHydrationWarning>© {new Date().getFullYear()} KapLabs Jobs</p>
           </footer>
         </div>
       </body>
