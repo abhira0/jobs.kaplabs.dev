@@ -13,7 +13,7 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const [demoLoading, setDemoLoading] = useState(false);
   const search = useSearchParams();
-  const redirectTo = search.get("redirect") || "/jobs";
+  const redirectTo = search.get("redirect") || "/analytics";
 
   // Check if already logged in on mount - run only once to avoid redirect loops
   useEffect(() => {
@@ -30,7 +30,7 @@ function LoginContent() {
 
       if (token || cookieToken || loggedInCookie) {
         // Use the redirectTo value at mount time, not as a dependency
-        const redirect = search.get("redirect") || "/jobs";
+        const redirect = search.get("redirect") || "/analytics";
         router.replace(redirect);
       }
     }
