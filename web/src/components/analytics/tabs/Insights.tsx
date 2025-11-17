@@ -33,6 +33,15 @@ export default function Insights({ data }: InsightsProps) {
     // Create links between sequential stages based on actual flow
     const links = [];
 
+    // Applied -> Ghosted (no response)
+    if (applicationFunnel.find(s => s.name === 'Ghosted')?.value > 0) {
+      links.push({
+        source: 'Applied',
+        target: 'Ghosted',
+        value: applicationFunnel.find(s => s.name === 'Ghosted')?.value || 0,
+      });
+    }
+
     // Applied -> Screen
     if (applicationFunnel.find(s => s.name === 'Screen')?.value > 0) {
       links.push({
@@ -126,6 +135,12 @@ export default function Insights({ data }: InsightsProps) {
         count: totalApps,
         percentage: 100,
         color: '#3b82f6',
+      },
+      {
+        stage: 'Ghosted (No Response)',
+        count: applicationFunnel.find(s => s.name === 'Ghosted')?.value || 0,
+        percentage: ((applicationFunnel.find(s => s.name === 'Ghosted')?.value || 0) / totalApps) * 100,
+        color: '#64748b',
       },
       {
         stage: 'Screening Stage',
@@ -291,49 +306,6 @@ export default function Insights({ data }: InsightsProps) {
           ))}
         </div>
       </ChartContainer>
-
-      {/* Success Insights */}
-      <div className="rounded-lg border border-default bg-black/40 backdrop-blur p-6">
-        <h3 className="text-lg font-semibold mb-4">Key Insights</h3>
-        <div className="space-y-3 text-sm">
-          <div className="flex items-start gap-3">
-            <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5" />
-            <div>
-              <span className="font-medium">Success Rate: </span>
-              <span className="text-muted">
-                {successRate.toFixed(1)}% of your applications reached the interview or offer stage
-              </span>
-            </div>
-          </div>
-          {conversionMetrics && conversionMetrics[3].percentage > 0 && (
-            <div className="flex items-start gap-3">
-              <div className="w-2 h-2 rounded-full bg-green-500 mt-1.5" />
-              <div>
-                <span className="font-medium">Offer Conversion: </span>
-                <span className="text-muted">
-                  {(
-                    (conversionMetrics[3].count /
-                    Math.max(conversionMetrics[2].count, 1)) *
-                    100
-                  ).toFixed(1)}% of interviews resulted in offers
-                </span>
-              </div>
-            </div>
-          )}
-          {conversionMetrics && conversionMetrics[5].percentage > 50 && (
-            <div className="flex items-start gap-3">
-              <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5" />
-              <div>
-                <span className="font-medium">High Rejection Rate: </span>
-                <span className="text-muted">
-                  {conversionMetrics[5].percentage.toFixed(1)}% of applications were rejected.
-                  Consider refining your application strategy or targeting.
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -343,6 +315,7 @@ function getStageColor(stageName: string): string {
   const colorMap: Record<string, string> = {
     'Saved': '#6366f1',
     'Applied': '#3b82f6',
+    'Ghosted': '#64748b',
     'Screen': '#f59e0b',
     'Interviewing': '#8b5cf6',
     'Offer': '#10b981',

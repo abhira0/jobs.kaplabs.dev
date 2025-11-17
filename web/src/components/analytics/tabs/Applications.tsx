@@ -72,7 +72,7 @@ export default function Applications({ data }: ApplicationsProps) {
     count,
   }));
 
-  // Calculate conversion rates
+  // Calculate conversion rates for stat cards
   const conversionMetrics = useMemo(() => {
     const total = summary.totalApps;
     if (total === 0) return null;
@@ -316,51 +316,6 @@ export default function Applications({ data }: ApplicationsProps) {
           </ComposedChart>
         </ResponsiveContainer>
       </ChartContainer>
-
-      {/* Conversion Metrics Summary */}
-      {conversionMetrics && (
-        <div className="rounded-lg border border-default bg-black/40 backdrop-blur p-6">
-          <h3 className="text-lg font-semibold mb-4">Conversion Metrics</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted">Interview Rate</span>
-                <span className="text-lg font-semibold">{conversionMetrics.interviewRate}%</span>
-              </div>
-              <div className="w-full bg-white/5 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all"
-                  style={{ width: `${conversionMetrics.interviewRate}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted">Offer Rate</span>
-                <span className="text-lg font-semibold">{conversionMetrics.offerRate}%</span>
-              </div>
-              <div className="w-full bg-white/5 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all"
-                  style={{ width: `${conversionMetrics.offerRate}%` }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-muted">Rejection Rate</span>
-                <span className="text-lg font-semibold">{conversionMetrics.rejectionRate}%</span>
-              </div>
-              <div className="w-full bg-white/5 rounded-full h-2">
-                <div
-                  className="bg-red-500 h-2 rounded-full transition-all"
-                  style={{ width: `${conversionMetrics.rejectionRate}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

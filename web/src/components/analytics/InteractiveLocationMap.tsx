@@ -25,6 +25,7 @@ export default function InteractiveLocationMap({
 }: InteractiveLocationMapProps) {
   const [tooltipContent, setTooltipContent] = useState<string>('');
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [hoveredLocation, setHoveredLocation] = useState<string | null>(null);
 
   // Calculate average compensation per location
   const locationCompensation = useMemo(() => {
@@ -76,6 +77,15 @@ export default function InteractiveLocationMap({
     return compensationMap;
   }, [jobsData]);
 
+  // Calculate min and max compensation for color scaling
+  const { minComp, maxComp } = useMemo(() => {
+    const comps = Array.from(locationCompensation.values()).map(c => c.avgPerHour);
+    return {
+      minComp: comps.length > 0 ? Math.min(...comps) : 0,
+      maxComp: comps.length > 0 ? Math.max(...comps) : 100,
+    };
+  }, [locationCompensation]);
+
   // Filter locations to only show USA (approximate bounds)
   const usaLocations = useMemo(() => {
     return locations.filter(loc => {
@@ -86,6 +96,31 @@ export default function InteractiveLocationMap({
   }, [locations]);
 
   const maxCount = Math.max(...usaLocations.map(l => l.count), 1);
+
+  // Helper function to get color based on compensation
+  const getCompensationColor = (avgHourly: number): string => {
+    if (avgHourly === 0) return '#6366f1'; // Indigo for no data
+
+    // Normalize compensation to 0-1 scale
+    const normalized = (avgHourly - minComp) / (maxComp - minComp || 1);
+
+    // Color gradient from red (low) -> yellow (mid) -> green (high)
+    if (normalized < 0.5) {
+      // Red to Yellow
+      const ratio = normalized * 2;
+      const r = 239; // ef
+      const g = Math.round(68 + (217 * ratio)); // 44 to f5
+      const b = 68; // 44
+      return `rgb(${r}, ${g}, ${b})`;
+    } else {
+      // Yellow to Green
+      const ratio = (normalized - 0.5) * 2;
+      const r = Math.round(239 - (223 * ratio)); // f5 to 10
+      const g = Math.round(158 + (27 * ratio)); // 9e to b9
+      const b = Math.round(11 + (118 * ratio)); // 0b to 81
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+  };
 
   const handleMarkerEnter = (location: LocationData, event: React.MouseEvent) => {
     const compensation = locationCompensation.get(location.key);
@@ -99,10 +134,18 @@ export default function InteractiveLocationMap({
 
     setTooltipContent(content);
     setTooltipPosition({ x: event.clientX, y: event.clientY });
+    setHoveredLocation(location.key);
+  };
+
+  const handleMarkerMove = (event: React.MouseEvent) => {
+    if (tooltipContent) {
+      setTooltipPosition({ x: event.clientX, y: event.clientY });
+    }
   };
 
   const handleMarkerLeave = () => {
     setTooltipContent('');
+    setHoveredLocation(null);
   };
 
   return (
@@ -144,25 +187,28 @@ export default function InteractiveLocationMap({
             {/* Markers for job locations */}
             {usaLocations.map((location) => {
               const [lat, lng] = location.coords;
-              const size = 3 + (location.count / maxCount) * 15;
+              const size = 4 + (location.count / maxCount) * 12;
               const compensation = locationCompensation.get(location.key);
-              const hasCompensation = compensation && compensation.avgPerHour > 0;
+              const avgHourly = compensation?.avgPerHour || 0;
+              const markerColor = getCompensationColor(avgHourly);
+              const isHovered = hoveredLocation === location.key;
 
               return (
                 <Marker
                   key={location.key}
                   coordinates={[lng, lat]}
                   onMouseEnter={(event) => handleMarkerEnter(location, event)}
+                  onMouseMove={handleMarkerMove}
                   onMouseLeave={handleMarkerLeave}
                   style={{ cursor: 'pointer' }}
                 >
                   <circle
                     r={size}
-                    fill={hasCompensation ? '#3b82f6' : '#6366f1'}
-                    fillOpacity={0.7}
+                    fill={markerColor}
+                    fillOpacity={isHovered ? 1 : 0.7}
                     stroke="#ffffff"
-                    strokeWidth={1}
-                    className="transition-all duration-200 hover:fill-opacity-100 hover:stroke-width-2"
+                    strokeWidth={isHovered ? 2 : 1}
+                    className="transition-all duration-200"
                   />
                 </Marker>
               );
@@ -188,17 +234,27 @@ export default function InteractiveLocationMap({
         )}
 
         {/* Legend */}
-        <div className="absolute top-2 right-2 bg-gray-900/90 backdrop-blur rounded-md px-3 py-2 text-xs border border-default">
-          <div className="font-semibold mb-1">Legend</div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span>With salary data</span>
+        <div className="absolute top-2 right-2 bg-gray-900/95 backdrop-blur rounded-md px-3 py-2 text-xs border border-default max-w-[180px]">
+          <div className="font-semibold mb-2">Legend</div>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span className="text-muted">Low compensation</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <span className="text-muted">Mid compensation</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span className="text-muted">High compensation</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+              <span className="text-muted">No salary data</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-            <span>No salary data</span>
-          </div>
-          <div className="text-muted mt-1">Size = # of applications</div>
+          <div className="text-muted mt-2 pt-2 border-t border-gray-700">Size = # of applications</div>
         </div>
       </div>
 

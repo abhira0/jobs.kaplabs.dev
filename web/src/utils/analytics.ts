@@ -670,10 +670,12 @@ const processSuccessRateTrend = (dailyStats: DailyStatsMap): TrendDataPoint[] =>
 
 // Process Application Funnel
 // Flow: saved → applied → screen → interviewing → offer/rejected → accepted
+// Also tracks "ghosted" applications (applied but no response)
 const processApplicationFunnel = (data: SimplifyJob[]): FunnelStage[] => {
   const stageCounts = {
     saved: 0,
     applied: 0,
+    ghosted: 0, // Applications with no response
     screen: 0,
     interviewing: 0,
     offer: 0,
@@ -691,6 +693,12 @@ const processApplicationFunnel = (data: SimplifyJob[]): FunnelStage[] => {
     // Count each stage the application went through
     if (statuses.has('saved')) stageCounts.saved++;
     if (statuses.has('applied')) stageCounts.applied++;
+
+    // Check if ghosted (applied but only has 'applied' status)
+    if (statuses.has('applied') && statuses.size === 1) {
+      stageCounts.ghosted++;
+    }
+
     if (statuses.has('screen')) stageCounts.screen++;
     if (statuses.has('interviewing')) stageCounts.interviewing++;
     if (statuses.has('offer')) stageCounts.offer++;
@@ -703,6 +711,7 @@ const processApplicationFunnel = (data: SimplifyJob[]): FunnelStage[] => {
   return [
     { name: 'Saved', value: stageCounts.saved, percentage: (stageCounts.saved / total) * 100 },
     { name: 'Applied', value: stageCounts.applied, percentage: (stageCounts.applied / total) * 100 },
+    { name: 'Ghosted', value: stageCounts.ghosted, percentage: (stageCounts.ghosted / total) * 100 },
     { name: 'Screen', value: stageCounts.screen, percentage: (stageCounts.screen / total) * 100 },
     { name: 'Interviewing', value: stageCounts.interviewing, percentage: (stageCounts.interviewing / total) * 100 },
     { name: 'Offer', value: stageCounts.offer, percentage: (stageCounts.offer / total) * 100 },
