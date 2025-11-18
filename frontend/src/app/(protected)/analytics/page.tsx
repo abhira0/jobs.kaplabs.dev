@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { SimplifyJob, AnalyticsFilters, ProcessedAnalyticsData, Snapshot, SnapshotWithData } from '@/types/analytics';
@@ -154,7 +154,7 @@ function AnalyticsPageInner() {
   };
 
   // Fetch saved filters (snapshot-specific or default)
-  const fetchSavedFilters = async (snapshotId: string | null = null) => {
+  const fetchSavedFilters = useCallback(async (snapshotId: string | null = null) => {
     try {
       const token = localStorage.getItem('jwt_token');
 
@@ -181,7 +181,7 @@ function AnalyticsPageInner() {
     } catch (error) {
       console.error('Failed to fetch saved filters:', error);
     }
-  };
+  }, []);
 
   // Fetch snapshots and restore snapshot view if needed
   useEffect(() => {
@@ -200,7 +200,7 @@ function AnalyticsPageInner() {
     };
 
     init();
-  }, []);
+  }, [handleViewSnapshot, fetchSavedFilters]);
 
   // Auto-load first snapshot if no current data
   useEffect(() => {
@@ -217,10 +217,10 @@ function AnalyticsPageInner() {
     };
 
     autoLoadSnapshot();
-  }, [rawData, isLoading, snapshots, viewingSnapshot]);
+  }, [rawData, isLoading, snapshots, viewingSnapshot, handleViewSnapshot]);
 
   // View snapshot
-  const handleViewSnapshot = async (snapshotId: string) => {
+  const handleViewSnapshot = useCallback(async (snapshotId: string) => {
     try {
       const token = localStorage.getItem('jwt_token');
       const res = await fetch(buildApiUrl(`/analytics/snapshots/${snapshotId}`), {
@@ -244,7 +244,7 @@ function AnalyticsPageInner() {
     } catch (error) {
       console.error('Failed to fetch snapshot:', error);
     }
-  };
+  }, [fetchSavedFilters]);
 
   // Exit snapshot view
   const handleExitSnapshotView = () => {

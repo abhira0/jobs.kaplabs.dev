@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AnalyticsFilters, DateRange } from '@/types/analytics';
 import { buildApiUrl } from '@/utils/api';
 
@@ -14,7 +14,7 @@ type FilterBarProps = {
   snapshotId?: string | null;
 };
 
-export default function FilterBar({ filters, onFiltersChange, companies, locations, snapshotId }: FilterBarProps) {
+export default function FilterBar({ filters, onFiltersChange, companies: _companies, locations: _locations, snapshotId }: FilterBarProps) {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [customStartDate, setCustomStartDate] = useState(filters.customStartDate || '');
   const [customEndDate, setCustomEndDate] = useState(filters.customEndDate || '');
