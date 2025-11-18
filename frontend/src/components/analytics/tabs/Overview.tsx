@@ -147,7 +147,7 @@ export default function Overview({ data }: OverviewProps) {
     }
 
     return { nodes, links };
-  }, [funnel]);
+  }, [applicationFunnel]);
 
   // Calculate conversion metrics (percentage of each stage relative to total applications)
   const conversionMetrics = useMemo(() => {
