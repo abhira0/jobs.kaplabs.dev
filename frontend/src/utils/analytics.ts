@@ -16,6 +16,7 @@ import {
   TrendDataPoint,
   ProcessedAnalyticsData,
   AnalyticsFilters,
+  FunnelStage,
 } from '@/types/analytics';
 import { differenceInDays, format, startOfWeek, startOfMonth } from 'date-fns';
 
@@ -327,7 +328,9 @@ const processDailyData = (data: SimplifyJob[], filters?: AnalyticsFilters): Dail
       const eventStatus = normalizeStatus(event.status);
       if (eventStatus === 'applied') {
         dailyStats[eventDate].totalApplications++;
-        dailyStats[eventDate].uniqueCompanies.add(job.company_id);
+        if (job.company_id) {
+          dailyStats[eventDate].uniqueCompanies.add(job.company_id);
+        }
       }
       if (eventStatus === 'rejected') {
         dailyStats[eventDate].rejections++;

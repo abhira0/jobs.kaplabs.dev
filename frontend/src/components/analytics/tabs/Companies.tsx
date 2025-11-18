@@ -223,6 +223,7 @@ export default function Companies({ data, rawData = [] }: CompaniesProps) {
               name="Jobs"
               radius={[0, 4, 4, 0]}
               label={({ x, y, width, height, index }) => {
+                if (index === undefined) return null;
                 const data = topLocations[index];
                 if (!data || data.avgCompensation <= 0) return null;
 

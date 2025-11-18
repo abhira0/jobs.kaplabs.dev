@@ -1,18 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ClientNav from "@/components/nav/ClientNav";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "KapLabs Jobs/Internships",
@@ -26,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
         <div className="min-h-screen flex flex-col">
           <header className="sticky top-0 z-40 border-b border-default backdrop-blur supports-[backdrop-filter]:bg-black/40">
             <nav className="container-px mx-auto flex h-16 items-center justify-between">

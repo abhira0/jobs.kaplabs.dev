@@ -77,16 +77,15 @@ function AnalyticsPageInner() {
     if (!rawData) return { companies: [], locations: [] };
 
     const uniqueCompanies = Array.from(
-      new Set(rawData.map(job => job.company?.name || job.company_name || job.company_id).filter(Boolean))
+      new Set(rawData.map(job => job.company?.name || job.company_name || job.company_id).filter((c): c is string => Boolean(c)))
     );
 
     const uniqueLocations = Array.from(
       new Set(
         rawData
           .map(job => job.job_posting_location)
-          .filter(Boolean)
+          .filter((loc): loc is string => Boolean(loc))
           .flatMap(loc => {
-            if (!loc) return [];
             // Extract city/state from location string
             const parts = loc.split(',');
             return parts.length > 0 ? [parts[0].trim()] : [];
