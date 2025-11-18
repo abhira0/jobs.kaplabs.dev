@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useApplications } from "@/context/ApplicationsContext";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import type { Job } from "@/types/job";
 import type { SortSpec } from "@/utils/sorts";
 
@@ -210,7 +211,7 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
   const handleRowCheckboxChange = (
     jobId: string,
     rowIndex: number,
-    e: React.ChangeEvent<HTMLInputElement>
+    _e: React.ChangeEvent<HTMLInputElement>
   ) => {
     // Skip if this was a shift-click (handled in onClick)
     if (isShiftClickRef.current) {
@@ -423,7 +424,7 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
                             className="inline-flex items-center justify-center h-8 w-full bg-indigo-600 text-white text-xs hover:bg-indigo-700"
                             title="Apply with Simplify"
                           >
-                            <img src="/simplify-logo.png" alt="Simplify" className="h-4 w-4" />
+                            <Image src="/simplify-logo.png" alt="Simplify" width={16} height={16} className="h-4 w-4" />
                             <span className="sr-only">Simplify</span>
                           </a>
                         </div>
@@ -524,7 +525,7 @@ export default function JobsTable({ jobs, pageSize, currentPage, onPageChange, o
                           className="inline-flex items-center justify-center h-8 w-full bg-indigo-600 text-white text-xs hover:bg-indigo-700"
                           title="Apply with Simplify"
                         >
-                          <img src="/simplify-logo.png" alt="Simplify" className="h-4 w-4" />
+                          <Image src="/simplify-logo.png" alt="Simplify" width={16} height={16} className="h-4 w-4" />
                           <span className="sr-only">Simplify</span>
                         </a>
                       </div>

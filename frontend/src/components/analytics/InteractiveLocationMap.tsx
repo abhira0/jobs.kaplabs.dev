@@ -54,7 +54,7 @@ export default function InteractiveLocationMap({
     jobsData.forEach(job => {
       if (!job.coordinates || !job.salary) return;
 
-      job.coordinates.forEach(([lat, lng, name]) => {
+      job.coordinates.forEach(([lat, lng, _name]) => {
         // Validate coordinates
         if (!isValidCoordinate(lat, lng)) return;
 

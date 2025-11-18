@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ProcessedAnalyticsData } from '@/types/analytics';
 import ChartContainer from '../ChartContainer';
 import StatCard from '../StatCard';
