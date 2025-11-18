@@ -183,6 +183,33 @@ function AnalyticsPageInner() {
     }
   }, []);
 
+  // View snapshot
+  const handleViewSnapshot = useCallback(async (snapshotId: string) => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const res = await fetch(buildApiUrl(`/analytics/snapshots/${snapshotId}`), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        const snapshotData: SnapshotWithData = await res.json();
+        setViewingSnapshot(snapshotData.data);
+        setSnapshotName(snapshotData.name);
+        setCurrentSnapshotId(snapshotId);
+
+        // Save to localStorage so we can restore on refresh
+        localStorage.setItem('viewing_snapshot_id', snapshotId);
+
+        // Load snapshot-specific saved filters
+        await fetchSavedFilters(snapshotId);
+        setIsSnapshotModalOpen(false);
+      }
+    } catch (error) {
+      console.error('Failed to fetch snapshot:', error);
+    }
+  }, [fetchSavedFilters]);
+
   // Fetch snapshots and restore snapshot view if needed
   useEffect(() => {
     const init = async () => {
@@ -218,33 +245,6 @@ function AnalyticsPageInner() {
 
     autoLoadSnapshot();
   }, [rawData, isLoading, snapshots, viewingSnapshot, handleViewSnapshot]);
-
-  // View snapshot
-  const handleViewSnapshot = useCallback(async (snapshotId: string) => {
-    try {
-      const token = localStorage.getItem('jwt_token');
-      const res = await fetch(buildApiUrl(`/analytics/snapshots/${snapshotId}`), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (res.ok) {
-        const snapshotData: SnapshotWithData = await res.json();
-        setViewingSnapshot(snapshotData.data);
-        setSnapshotName(snapshotData.name);
-        setCurrentSnapshotId(snapshotId);
-
-        // Save to localStorage so we can restore on refresh
-        localStorage.setItem('viewing_snapshot_id', snapshotId);
-
-        // Load snapshot-specific saved filters
-        await fetchSavedFilters(snapshotId);
-        setIsSnapshotModalOpen(false);
-      }
-    } catch (error) {
-      console.error('Failed to fetch snapshot:', error);
-    }
-  }, [fetchSavedFilters]);
 
   // Exit snapshot view
   const handleExitSnapshotView = () => {
