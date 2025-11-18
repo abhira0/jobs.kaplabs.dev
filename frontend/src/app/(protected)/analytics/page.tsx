@@ -307,24 +307,43 @@ function AnalyticsPageInner() {
       <section className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Analytics</h1>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/15 text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {isRefreshing ? (
-              <>
-                <span className="inline-block animate-spin mr-2">⟳</span>
-                Refreshing...
-              </>
-            ) : (
-              'Refresh Data'
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSnapshotModalOpen(true)}
+              className="px-4 py-2 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 text-sm font-medium transition-colors whitespace-nowrap"
+            >
+              📸 Snapshots ({snapshots.length}/5)
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="px-4 py-2 rounded-md bg-white/10 hover:bg-white/15 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {isRefreshing ? (
+                <>
+                  <span className="inline-block animate-spin mr-2">⟳</span>
+                  Refreshing...
+                </>
+              ) : (
+                'Refresh Data'
+              )}
+            </button>
+          </div>
         </div>
         <EmptyState
           title="No Analytics Data Available"
           description="Start applying to jobs to see your analytics dashboard. Data is automatically synced from your Simplify account."
+        />
+
+        {/* Snapshot Modal */}
+        <SnapshotModal
+          isOpen={isSnapshotModalOpen}
+          onClose={() => setIsSnapshotModalOpen(false)}
+          snapshots={snapshots}
+          onSnapshotCreated={fetchSnapshots}
+          onSnapshotDeleted={fetchSnapshots}
+          onSnapshotView={handleViewSnapshot}
+          currentFilters={filters}
         />
       </section>
     );
