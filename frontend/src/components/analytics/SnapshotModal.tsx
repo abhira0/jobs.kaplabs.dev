@@ -3,7 +3,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Snapshot, SnapshotCreate } from '@/types/analytics';
+import { Snapshot, SnapshotCreate, AnalyticsFilters } from '@/types/analytics';
 import { buildApiUrl } from '@/utils/api';
 import { formatDate } from '@/utils/export';
 
@@ -14,7 +14,7 @@ type SnapshotModalProps = {
   onSnapshotCreated: () => void;
   onSnapshotDeleted: () => void;
   onSnapshotView: (snapshotId: string) => void;
-  currentFilters: any;
+  currentFilters: AnalyticsFilters;
 };
 
 export default function SnapshotModal({
